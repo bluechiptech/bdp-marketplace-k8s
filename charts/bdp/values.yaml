@@ -1,0 +1,158 @@
+global:
+  # Registry holding the BDP images (marketplace-managed registry in listings).
+  imageRegistry: ghcr.io/bluechiptech/bdp
+  imageTag: "1.0.0"
+  # Domain the customer points at the ingress. Everything derives from it:
+  # UI https://<domain>, API https://<domain>/api, Keycloak https://keycloak.<domain>
+  externalDomain: bdp.example.com
+  ingressClassName: nginx
+  tlsSecretName: ""            # optional pre-provisioned wildcard cert
+
+billing:
+  # byol | flat | metered — set per marketplace plan.
+  mode: flat
+  licenseSecretName: bdp-license   # byol: secret with key "license.key"
+  metered:
+    schedule: "0 * * * *"
+    azure:
+      resourceId: ""
+      planId: ""
+      dimension: bdp_core_hours
+    aws:
+      productCode: ""
+      dimension: BDPCoreHours
+
+postgresql:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+  auth:
+    postgresPassword: ""        # empty -> chart-generated
+  primary:
+    persistence:
+      size: 20Gi
+    initdb:
+      scripts:
+        # NOTE: values files are not templated — this must stay literal SQL.
+        create-bdp-databases.sql: |
+          CREATE USER bdp_auth WITH PASSWORD 'bdp_auth'; CREATE DATABASE bdp_auth OWNER bdp_auth;
+          CREATE USER bdp_catalog WITH PASSWORD 'bdp_catalog'; CREATE DATABASE bdp_catalog OWNER bdp_catalog;
+          CREATE USER bdp_security WITH PASSWORD 'bdp_security'; CREATE DATABASE bdp_security OWNER bdp_security;
+          CREATE USER bdp_sql WITH PASSWORD 'bdp_sql'; CREATE DATABASE bdp_sql OWNER bdp_sql;
+          CREATE USER bdp_domain WITH PASSWORD 'bdp_domain'; CREATE DATABASE bdp_domain OWNER bdp_domain;
+          CREATE USER bdp_backup WITH PASSWORD 'bdp_backup'; CREATE DATABASE bdp_backup OWNER bdp_backup;
+          CREATE USER bdp_config WITH PASSWORD 'bdp_config'; CREATE DATABASE bdp_config OWNER bdp_config;
+          CREATE USER bdp_metering WITH PASSWORD 'bdp_metering'; CREATE DATABASE bdp_metering OWNER bdp_metering;
+          CREATE USER bdp_license WITH PASSWORD 'bdp_license'; CREATE DATABASE bdp_license OWNER bdp_license;
+          CREATE USER bdp_update WITH PASSWORD 'bdp_update'; CREATE DATABASE bdp_update OWNER bdp_update;
+          CREATE USER bdp_keymanager WITH PASSWORD 'bdp_keymanager'; CREATE DATABASE bdp_keymanager OWNER bdp_keymanager;
+          CREATE USER bdp_notification WITH PASSWORD 'bdp_notification'; CREATE DATABASE bdp_notification OWNER bdp_notification;
+          CREATE USER bdp_pipeline WITH PASSWORD 'bdp_pipeline'; CREATE DATABASE bdp_pipeline OWNER bdp_pipeline;
+          CREATE USER bdp_storage WITH PASSWORD 'bdp_storage'; CREATE DATABASE bdp_storage OWNER bdp_storage;
+          CREATE USER bdp_cloud WITH PASSWORD 'bdp_cloud'; CREATE DATABASE bdp_cloud OWNER bdp_cloud;
+          CREATE USER bdp_cluster WITH PASSWORD 'bdp_cluster'; CREATE DATABASE bdp_cluster OWNER bdp_cluster;
+          CREATE USER bdp_cluster_registry WITH PASSWORD 'bdp_cluster_registry'; CREATE DATABASE bdp_cluster_registry OWNER bdp_cluster_registry;
+          CREATE USER bdp_registry WITH PASSWORD 'bdp_registry'; CREATE DATABASE bdp_registry OWNER bdp_registry;
+          CREATE USER bdp_service WITH PASSWORD 'bdp_service'; CREATE DATABASE bdp_service OWNER bdp_service;
+          CREATE USER bdp_oracle_migration WITH PASSWORD 'bdp_oracle_migration'; CREATE DATABASE bdp_oracle_migration OWNER bdp_oracle_migration;
+
+redis:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/redis
+  architecture: standalone
+  auth:
+    enabled: false
+
+keycloak:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/keycloak
+  auth:
+    adminUser: admin
+    adminPassword: ""           # empty -> chart-generated
+  proxy: edge
+  httpRelativePath: "/"
+
+ui:
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+
+# One entry per platform service. A single template generates
+# Deployment + Service for each. extraEnv carries the service's
+# cross-service URLs (in-cluster DNS instead of the localhost defaults
+# baked into application.yml).
+serviceDefaults:
+  resources:
+    requests: { cpu: 100m, memory: 512Mi }
+    limits: { memory: 1Gi }
+
+services:
+  bdp-service-registry:    { port: 7013, db: bdp_registry }
+  bdp-auth-service:        { port: 7001, db: bdp_auth }
+  bdp-cluster-registry:    { port: 7018, db: bdp_cluster_registry }
+  bdp-cluster-manager:     { port: 7002, db: bdp_cluster }
+  bdp-config-manager:      { port: 7004, db: bdp_config }
+  bdp-service-manager:
+    port: 7003
+    db: bdp_service
+    extraEnv:
+      BDP_CLIENTS_PROVISIONERURL: http://bdp-provisioner:7014
+      BDP_CLIENTS_REGISTRYURL: http://bdp-service-registry:7013
+      BDP_CLIENTS_SQLENGINEURL: http://bdp-sql-engine:7008
+      BDP_SUPERSET_URL: http://superset.bdp-services.svc.cluster.local:8088
+  bdp-storage-manager:
+    port: 7005
+    db: bdp_storage
+    extraEnv:
+      MINIO_ENDPOINT: http://minio.bdp-services.svc.cluster.local:9000
+      BDP_ICEBERG_REST_URL: http://iceberg-lakekeeper.bdp-services.svc.cluster.local:8181/catalog
+  bdp-pipeline-manager:    { port: 7006, db: bdp_pipeline }
+  bdp-sql-engine:
+    port: 7008
+    db: bdp_sql
+    extraEnv:
+      BDP_TRINO_JDBC_URL: jdbc:trino://trino.bdp-services.svc.cluster.local:8080
+  bdp-catalog:
+    port: 7009
+    db: bdp_catalog
+    extraEnv:
+      BDP_TRINO_JDBC_URL: jdbc:trino://trino.bdp-services.svc.cluster.local:8080
+      MINIO_ENDPOINT: http://minio.bdp-services.svc.cluster.local:9000
+  bdp-domain-manager:      { port: 7019, db: bdp_domain }
+  bdp-security-policies:   { port: 7010, db: bdp_security }
+  bdp-key-manager:         { port: 7020, db: bdp_keymanager }
+  bdp-oracle-migration:
+    port: 7023
+    db: bdp_oracle_migration
+    extraEnv:
+      TRINO_JDBC_URL: jdbc:trino://trino.bdp-services.svc.cluster.local:8080
+      MINIO_ENDPOINT: http://minio.bdp-services.svc.cluster.local:9000
+  bdp-notification-service: { port: 7011, db: bdp_notification }
+  bdp-backup-manager:
+    port: 7012
+    db: bdp_backup
+    extraEnv:
+      MINIO_ENDPOINT: http://minio.bdp-services.svc.cluster.local:9000
+  bdp-license-manager:     { port: 7007, db: bdp_license }
+  bdp-metering:            { port: 7016, db: bdp_metering }
+  bdp-update-agent:        { port: 7017, db: bdp_update }
+  bdp-cloud-providers:     { port: 7015, db: bdp_cloud }
+  bdp-provisioner:
+    port: 7014
+    # In-cluster: provisioner installs data tools via its ServiceAccount,
+    # not a host kubeconfig. RBAC granted in templates/services.yaml.
+    serviceAccount: bdp-provisioner
+  bdp-gateway:
+    port: 7000
+    # Gateway route targets — in-cluster DNS. Verify names against
+    # bdp-gateway application.yml route env bindings before GA.
+    extraEnv: {}
+
+seed:
+  image: bdp-seed          # under global.imageRegistry
+  backoffLimit: 3

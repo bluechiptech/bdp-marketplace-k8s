@@ -1,0 +1,10 @@
+# Seed image: containerized Keycloak/database bootstrap (setup-server.js +
+# authz import). Runs as the chart's post-install Job.
+FROM node:20-alpine
+RUN apk add --no-cache bash curl jq postgresql-client openssl
+COPY dist/scripts/setup-server.js /seed/setup-server.js
+COPY dist/config/authz-bdp.json  /seed/authz-bdp.json
+COPY seed/entrypoint.sh          /seed/entrypoint.sh
+RUN chmod +x /seed/entrypoint.sh && adduser -S -u 10001 bdp
+USER 10001
+ENTRYPOINT ["/seed/entrypoint.sh"]

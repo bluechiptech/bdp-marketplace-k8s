@@ -1,0 +1,22 @@
+# AWS Marketplace container-product listing (EKS delivery via Helm).
+# Images + chart must be pushed to the AWS Marketplace ECR repos created by
+# the listing; `aws marketplace-catalog` ChangeSets reference these values.
+productTitle: Bluechip Data Platform (BDP)
+deliveryMethod: helm
+helmChart:
+  repositoryPath: charts/bdp        # pushed as OCI chart to marketplace ECR
+  releaseName: bdp
+  namespaceDefault: bdp
+  overrideParameters:
+    - key: global.imageRegistry
+      description: Marketplace ECR registry prefix (set automatically)
+    - key: global.externalDomain
+      description: DNS name the customer points at the ingress
+    - key: billing.mode
+      description: byol | flat | metered (must match the chosen offer dimension)
+pricing:
+  models: [byol, flat-monthly, metered]
+  meteredDimension: BDPCoreHours    # used when billing.mode=metered
+eksSupport:
+  kubernetesVersions: ["1.28", "1.29", "1.30"]
+  fargate: false

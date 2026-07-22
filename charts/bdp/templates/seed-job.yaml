@@ -1,0 +1,82 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bdp-seed-{{ .Release.Revision }}
+  labels:
+    app.kubernetes.io/part-of: bdp
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ .Values.seed.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bdp-seed
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: bdp-seed
+      containers:
+        - name: seed
+          image: {{ include "bdp.image" (dict "root" . "name" .Values.seed.image) }}
+          env:
+            - name: KEYCLOAK_URL
+              value: {{ include "bdp.keycloakInternalUrl" . }}
+            - name: KEYCLOAK_ADMIN
+              value: {{ .Values.keycloak.auth.adminUser }}
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-keycloak
+                  key: admin-password
+            - name: POSTGRES_HOST
+              value: {{ include "bdp.postgresHost" . }}
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-postgresql
+                  key: postgres-password
+            - name: SERVER_IP
+              value: {{ .Values.global.externalDomain | quote }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bdp-seed
+  annotations:
+    helm.sh/hook: pre-install
+    helm.sh/hook-delete-policy: before-hook-creation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: bdp-seed
+  annotations:
+    helm.sh/hook: pre-install
+    helm.sh/hook-delete-policy: before-hook-creation
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [create, get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: bdp-seed
+  annotations:
+    helm.sh/hook: pre-install
+    helm.sh/hook-delete-policy: before-hook-creation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: bdp-seed
+subjects:
+  - kind: ServiceAccount
+    name: bdp-seed
+    namespace: {{ .Release.Namespace }}

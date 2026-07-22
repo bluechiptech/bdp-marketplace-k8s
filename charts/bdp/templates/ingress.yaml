@@ -1,0 +1,42 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bdp
+  labels:
+    app.kubernetes.io/part-of: bdp
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+spec:
+  ingressClassName: {{ .Values.global.ingressClassName }}
+  {{- if .Values.global.tlsSecretName }}
+  tls:
+    - hosts:
+        - {{ .Values.global.externalDomain }}
+        - keycloak.{{ .Values.global.externalDomain }}
+      secretName: {{ .Values.global.tlsSecretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.global.externalDomain }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: bdp-gateway
+                port: { number: 7000 }
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bdp-ui
+                port: { number: 3000 }
+    - host: keycloak.{{ .Values.global.externalDomain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-keycloak
+                port: { number: 80 }

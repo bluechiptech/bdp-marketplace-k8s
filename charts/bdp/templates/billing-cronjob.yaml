@@ -1,0 +1,39 @@
+{{- if eq .Values.billing.mode "metered" }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: bdp-meter-emitter
+  labels:
+    app.kubernetes.io/part-of: bdp
+spec:
+  schedule: {{ .Values.billing.metered.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: emit
+              image: {{ include "bdp.image" (dict "root" . "name" .Values.seed.image) }}
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -e
+                  QTY=$(curl -sf http://bdp-metering:7016/api/v1/metering/usage | jq -r '.coreHours // 1' || echo 1)
+                  NOW=$(date -u +%Y-%m-%dT%H:00:00Z)
+                  echo "usage=$QTY at $NOW cloud={{ .Values.billing.metered.azure.resourceId | ternary "azure" "aws" }}"
+                  {{- if .Values.billing.metered.azure.resourceId }}
+                  TOKEN=$(curl -s -H "Metadata: true" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=20e940b3-4c77-4b0b-9a53-9e16a1b010a7" | jq -r .access_token)
+                  curl -sf -X POST "https://marketplaceapi.microsoft.com/api/usageEvent?api-version=2018-08-31" \
+                    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+                    -d "{\"resourceId\":\"{{ .Values.billing.metered.azure.resourceId }}\",\"planId\":\"{{ .Values.billing.metered.azure.planId }}\",\"dimension\":\"{{ .Values.billing.metered.azure.dimension }}\",\"quantity\":$QTY,\"effectiveStartTime\":\"$NOW\"}"
+                  {{- else if .Values.billing.metered.aws.productCode }}
+                  aws meteringmarketplace meter-usage --product-code "{{ .Values.billing.metered.aws.productCode }}" \
+                    --usage-dimension "{{ .Values.billing.metered.aws.dimension }}" --usage-quantity "${QTY%.*}" --timestamp "$NOW"
+                  {{- end }}
+{{- end }}
+{{- if eq .Values.billing.mode "byol" }}
+{{- /* BYOL: the license key secret is mounted into bdp-license-manager via
+       extraEnv/volume in a follow-up; validation endpoint: /api/v1/licenses/check */}}
+{{- end }}
