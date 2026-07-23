@@ -40,6 +40,14 @@ bdp-postgres
 - name: BDP_AIRGAP_REGISTRY
   value: {{ .Values.global.airgapRegistry | quote }}
 {{- end }}
+{{- if .Values.global.airgapRegistryUsername }}
+- name: BDP_AIRGAP_REGISTRY_USERNAME
+  valueFrom:
+    secretKeyRef: { name: bdp-airgap-registry, key: username }
+- name: BDP_AIRGAP_REGISTRY_PASSWORD
+  valueFrom:
+    secretKeyRef: { name: bdp-airgap-registry, key: password }
+{{- end }}
 - name: BDP_SECRET_MASTER_KEY
   valueFrom:
     secretKeyRef: { name: bdp-platform-secrets, key: master-key }

@@ -23,6 +23,11 @@ global:
   # and redirects their images to <registry>/tools/* — nothing is fetched from
   # public registries. Empty leaves public-repo behaviour (dev/self-managed).
   airgapRegistry: ""
+  # Credentials the provisioner uses to authenticate helm's OCI chart pull from
+  # a PRIVATE air-gap registry (leave empty if the registry allows anonymous
+  # pull, which is fine for public tool charts). Stored in a Secret, not env.
+  airgapRegistryUsername: ""
+  airgapRegistryPassword: ""
   # Cluster-internal IP the UI pod uses to reach keycloak.<domain> for server-side
   # OIDC token calls. Managed-K8s load balancers often do not hairpin (a pod
   # cannot dial the cluster's own public LB IP), so map the external Keycloak
