@@ -1,4 +1,4 @@
-# bdp-marketplace-k8s
+﻿# bdp-marketplace-k8s
 
 Marketplace Kubernetes-App packaging for BDP (Azure container offer / AWS EKS
 container listing / GKE — cloud-neutral chart, per-cloud offer folders).
@@ -33,7 +33,7 @@ helm package charts/bdp                                   # chart artifact
 ```
 helm install bdp charts/bdp \
   --set global.externalDomain=bdp.customer.example.com \
-  --set global.imageRegistry=<marketplace registry> \
+  --set global.bdpImageRegistry=<marketplace registry> \
   --set billing.mode=byol|flat|metered
 ```
 

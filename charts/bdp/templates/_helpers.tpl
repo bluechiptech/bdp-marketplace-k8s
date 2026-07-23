@@ -1,5 +1,5 @@
 {{- define "bdp.image" -}}
-{{ .root.Values.global.imageRegistry }}/{{ .name }}:{{ .root.Values.global.imageTag }}
+{{ .root.Values.global.bdpImageRegistry }}/{{ .name }}:{{ .root.Values.global.bdpImageTag }}
 {{- end -}}
 
 {{- define "bdp.keycloakInternalUrl" -}}
@@ -11,7 +11,7 @@ https://keycloak.{{ .Values.global.externalDomain }}/realms/bdp
 {{- end -}}
 
 {{- define "bdp.postgresHost" -}}
-{{ .Release.Name }}-postgresql
+bdp-postgres
 {{- end -}}
 
 {{/* Environment shared by every Spring Boot service */}}

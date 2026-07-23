@@ -1,4 +1,4 @@
-# AWS Marketplace container-product listing (EKS delivery via Helm).
+﻿# AWS Marketplace container-product listing (EKS delivery via Helm).
 # Images + chart must be pushed to the AWS Marketplace ECR repos created by
 # the listing; `aws marketplace-catalog` ChangeSets reference these values.
 productTitle: Bluechip Data Platform (BDP)
@@ -8,7 +8,7 @@ helmChart:
   releaseName: bdp
   namespaceDefault: bdp
   overrideParameters:
-    - key: global.imageRegistry
+    - key: global.bdpImageRegistry
       description: Marketplace ECR registry prefix (set automatically)
     - key: global.externalDomain
       description: DNS name the customer points at the ingress

@@ -1,7 +1,10 @@
 global:
   # Registry holding the BDP images (marketplace-managed registry in listings).
-  imageRegistry: ghcr.io/bluechiptech/bdp
-  imageTag: "1.0.0"
+  # NOTE: deliberately NOT named imageRegistry — global.imageRegistry is a
+  # Bitnami convention and would re-prefix the postgresql/redis/keycloak
+  # subchart images too.
+  bdpImageRegistry: ghcr.io/bluechiptech/bdp
+  bdpImageTag: "1.0.0"
   # Domain the customer points at the ingress. Everything derives from it:
   # UI https://<domain>, API https://<domain>/api, Keycloak https://keycloak.<domain>
   externalDomain: bdp.example.com
@@ -24,6 +27,9 @@ billing:
 
 postgresql:
   enabled: true
+  # Fixed name: keycloak's externalDatabase.host must be a literal, and it
+  # also guarantees no collision with any keycloak-embedded postgresql.
+  fullnameOverride: bdp-postgres
   image:
     registry: docker.io
     repository: bitnamilegacy/postgresql
@@ -36,6 +42,7 @@ postgresql:
       scripts:
         # NOTE: values files are not templated — this must stay literal SQL.
         create-bdp-databases.sql: |
+          CREATE USER keycloak WITH PASSWORD 'keycloak'; CREATE DATABASE keycloak OWNER keycloak;
           CREATE USER bdp_auth WITH PASSWORD 'bdp_auth'; CREATE DATABASE bdp_auth OWNER bdp_auth;
           CREATE USER bdp_catalog WITH PASSWORD 'bdp_catalog'; CREATE DATABASE bdp_catalog OWNER bdp_catalog;
           CREATE USER bdp_security WITH PASSWORD 'bdp_security'; CREATE DATABASE bdp_security OWNER bdp_security;
@@ -76,6 +83,16 @@ keycloak:
     adminPassword: ""           # empty -> chart-generated
   proxy: edge
   httpRelativePath: "/"
+  # Share the platform postgres instead of the chart's embedded one — the
+  # embedded subchart renders the same resource names and collides.
+  postgresql:
+    enabled: false
+  externalDatabase:
+    host: bdp-postgres
+    port: 5432
+    user: keycloak
+    database: keycloak
+    password: keycloak
 
 ui:
   replicas: 1
