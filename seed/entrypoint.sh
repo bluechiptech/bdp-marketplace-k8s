@@ -36,15 +36,21 @@ SA=/var/run/secrets/kubernetes.io/serviceaccount
 KAPI="https://kubernetes.default.svc"
 TOKEN=$(cat $SA/token)
 b64() { printf '%s' "$1" | base64 | tr -d '\n'; }
-curl -sf --cacert $SA/ca.crt -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" -X POST \
-  "$KAPI/api/v1/namespaces/$NAMESPACE/secrets" -d "{
+BODY="{
     \"apiVersion\":\"v1\",\"kind\":\"Secret\",
     \"metadata\":{\"name\":\"bdp-credentials\"},
     \"data\":{
       \"admin-password\":\"$(b64 "$BDP_ADMIN_PASS")\",
       \"engineer-password\":\"$(b64 "$ENGINEER_PASS")\"
-    }}" >/dev/null \
-  || echo "WARN: bdp-credentials secret already exists — passwords unchanged in it"
+    }}"
+# Every run resets the Keycloak passwords, so the secret must ALWAYS be
+# brought in sync — create it, or patch it when it already exists.
+curl -sf --cacert $SA/ca.crt -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -X POST \
+  "$KAPI/api/v1/namespaces/$NAMESPACE/secrets" -d "$BODY" >/dev/null \
+  || curl -sf --cacert $SA/ca.crt -H "Authorization: Bearer $TOKEN" \
+      -H "Content-Type: application/strategic-merge-patch+json" -X PATCH \
+      "$KAPI/api/v1/namespaces/$NAMESPACE/secrets/bdp-credentials" -d "$BODY" >/dev/null \
+  || { echo "ERROR: could not create or patch bdp-credentials"; exit 1; }
 
 echo "Seed complete. Retrieve credentials: kubectl get secret bdp-credentials -n $NAMESPACE"
