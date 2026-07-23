@@ -18,10 +18,13 @@ bdp-postgres
 {{- define "bdp.commonEnv" -}}
 - name: SPRING_PROFILES_ACTIVE
   value: prod
-{{- /* Non-root uid 10001 has no home dir in the image; services that write
-       under $HOME (cluster-registry FileSecretBackend) need a writable one */}}
+{{- /* Non-root uid 10001 has no writable home in pre---create-home images and
+       Java resolves user.home from /etc/passwd (NOT $HOME) — force it writable
+       for services that persist under it (cluster-registry FileSecretBackend) */}}
 - name: HOME
   value: /tmp
+- name: JAVA_OPTS
+  value: "-Xms256m -Xmx768m -Duser.home=/tmp"
 - name: BDP_EXTERNAL_HOST
   value: {{ .Values.global.externalDomain | quote }}
 - name: BDP_KEYCLOAK_ISSUER_URI

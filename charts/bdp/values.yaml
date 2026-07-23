@@ -87,7 +87,7 @@ keycloak:
   # kc.sh build/augmentation phase — give Keycloak real memory.
   resources:
     requests: { cpu: 250m, memory: 1Gi }
-    limits: { memory: 2Gi }
+    limits: { memory: 3Gi }   # 2Gi still OOMs the Quarkus augmentation burst
   # Share the platform postgres instead of the chart's embedded one — the
   # embedded subchart renders the same resource names and collides.
   postgresql:
