@@ -124,10 +124,6 @@ rules:
   - apiGroups: [apps]
     resources: [deployments, statefulsets, replicasets, daemonsets, deployments/scale, statefulsets/scale]
     verbs: [get, list, watch, patch, update]
-  # Tool-UI access in ingress mode publishes a per-tool subdomain Ingress.
-  - apiGroups: [networking.k8s.io]
-    resources: [ingresses]
-    verbs: [get, list, watch, create, update, patch, delete]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -137,6 +133,39 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: bdp-service-manager
+subjects:
+  - kind: ServiceAccount
+    name: bdp-service-manager
+    namespace: {{ .Release.Namespace }}
+---
+{{- /* Ingress WRITE is deliberately NOT in the cluster-wide role above:
+       cluster-wide ingress create/update is an ingress-hijack risk. Tool UIs
+       only ever get an Ingress in the tools namespace, so scope that write to
+       a namespaced Role there instead. */}}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.global.toolsNamespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: bdp-service-manager-tool-ui
+  namespace: {{ .Values.global.toolsNamespace }}
+rules:
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses]
+    verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: bdp-service-manager-tool-ui
+  namespace: {{ .Values.global.toolsNamespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: bdp-service-manager-tool-ui
 subjects:
   - kind: ServiceAccount
     name: bdp-service-manager

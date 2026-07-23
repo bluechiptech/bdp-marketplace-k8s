@@ -42,6 +42,12 @@ spec:
                   key: postgres-password
             - name: SERVER_IP
               value: {{ .Values.global.externalDomain | quote }}
+            # Origin baked into every Keycloak client's redirect URIs + web
+            # origins. On K8s the UI is served via the ingress on HTTPS, NOT
+            # http://<host>:3000 (the setup-server default) — set it explicitly
+            # or login fails with "Invalid parameter: redirect_uri".
+            - name: UI_ORIGIN
+              value: https://{{ .Values.global.externalDomain }}
             - name: NAMESPACE
               value: {{ .Release.Namespace }}
 ---
