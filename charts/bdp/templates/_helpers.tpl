@@ -18,6 +18,10 @@ bdp-postgres
 {{- define "bdp.commonEnv" -}}
 - name: SPRING_PROFILES_ACTIVE
   value: prod
+{{- /* Non-root uid 10001 has no home dir in the image; services that write
+       under $HOME (cluster-registry FileSecretBackend) need a writable one */}}
+- name: HOME
+  value: /tmp
 - name: BDP_EXTERNAL_HOST
   value: {{ .Values.global.externalDomain | quote }}
 - name: BDP_KEYCLOAK_ISSUER_URI

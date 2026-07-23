@@ -2,7 +2,7 @@
 # Build arg SERVICE selects the JAR; the image contains ONLY the fat JAR.
 FROM eclipse-temurin:21-jre-jammy
 ARG SERVICE
-RUN useradd --system --uid 10001 --no-create-home bdp
+RUN useradd --system --uid 10001 --create-home --home-dir /home/bdp bdp
 COPY dist/lib/${SERVICE}.jar /app/app.jar
 USER 10001
 ENV JAVA_OPTS="-Xms256m -Xmx768m"
