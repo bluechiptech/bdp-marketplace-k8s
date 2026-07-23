@@ -148,6 +148,9 @@ services:
       BDP_CLIENTS_REGISTRYURL: http://bdp-service-registry:7013
       BDP_CLIENTS_SQLENGINEURL: http://bdp-sql-engine:7008
       BDP_SUPERSET_URL: http://superset.bdp-services.svc.cluster.local:8088
+      # Managed cloud K8s: expose installed tool UIs via a per-tool subdomain
+      # ingress (https://<tool>.<externalDomain>), not NodePort (unreachable).
+      BDP_UI_ACCESS_MODE: ingress
   bdp-storage-manager:
     port: 7005
     db: bdp_storage

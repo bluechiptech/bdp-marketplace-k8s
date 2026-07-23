@@ -33,6 +33,9 @@ bdp-postgres
   value: {{ include "bdp.keycloakExternalIssuer" . }}
 - name: BDP_CORS_ALLOWED_ORIGINS
   value: https://{{ .Values.global.externalDomain }}
+{{- /* IngressManager uses this to class per-tool UI ingresses (default traefik) */}}
+- name: BDP_INGRESS_CLASS
+  value: {{ .Values.global.ingressClassName | quote }}
 {{- if .Values.global.airgapRegistry }}
 - name: BDP_AIRGAP_REGISTRY
   value: {{ .Values.global.airgapRegistry | quote }}
