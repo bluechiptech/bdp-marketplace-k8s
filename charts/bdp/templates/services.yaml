@@ -124,6 +124,10 @@ rules:
   - apiGroups: [apps]
     resources: [deployments, statefulsets, replicasets, daemonsets, deployments/scale, statefulsets/scale]
     verbs: [get, list, watch, patch, update]
+  # Tool-UI access in ingress mode publishes a per-tool subdomain Ingress.
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses]
+    verbs: [get, list, watch, create, update, patch, delete]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
