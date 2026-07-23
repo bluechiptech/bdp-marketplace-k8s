@@ -1,0 +1,15 @@
+# bdp-provisioner needs the helm CLI — it shells out to `helm install` for
+# every data-tool deployment. Everything else matches Dockerfile.service.
+FROM eclipse-temurin:21-jre-jammy
+ARG HELM_VERSION=v3.16.3
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+    && curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" \
+       | tar -xz -C /tmp \
+    && mv /tmp/linux-amd64/helm /usr/local/bin/helm \
+    && chmod +x /usr/local/bin/helm \
+    && rm -rf /tmp/linux-amd64 /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 --create-home --home-dir /home/bdp bdp
+COPY dist/lib/bdp-provisioner.jar /app/app.jar
+USER 10001
+ENV JAVA_OPTS="-Xms256m -Xmx768m" BDP_HELM_BINARY=/usr/local/bin/helm
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]

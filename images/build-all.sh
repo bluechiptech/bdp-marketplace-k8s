@@ -14,8 +14,13 @@ SERVICES=$(ls "$ROOT/dist/lib" | sed 's/\.jar$//')
 
 for svc in $SERVICES; do
   echo "== $svc =="
-  docker build -f "$HERE/Dockerfile.service" --build-arg SERVICE="$svc" \
-    -t "$REGISTRY/$svc:$VERSION" "$ROOT"
+  if [ "$svc" = "bdp-provisioner" ]; then
+    # provisioner ships the helm CLI for data-tool installs
+    docker build -f "$HERE/Dockerfile.provisioner" -t "$REGISTRY/$svc:$VERSION" "$ROOT"
+  else
+    docker build -f "$HERE/Dockerfile.service" --build-arg SERVICE="$svc" \
+      -t "$REGISTRY/$svc:$VERSION" "$ROOT"
+  fi
   docker push "$REGISTRY/$svc:$VERSION"
 done
 
