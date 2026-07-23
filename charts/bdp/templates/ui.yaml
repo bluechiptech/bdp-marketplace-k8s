@@ -53,11 +53,11 @@ spec:
                 secretKeyRef: { name: bdp-platform-secrets, key: nextauth-secret }
             - name: KEYCLOAK_ISSUER
               value: https://keycloak.{{ .Values.global.externalDomain }}/realms/bdp
-            {{- if not .Values.global.tlsSecretName }}
-            # No pre-provisioned cert: the ingress serves nginx's self-signed
-            # default, so the UI pod's server-side OIDC fetch to Keycloak must
-            # not reject it. Provide global.tlsSecretName (a trusted cert) to
-            # drop this and restore full TLS verification.
+            {{- if .Values.global.insecureSkipTlsVerify }}
+            # INSECURE (opt-in, testing only): skips TLS verification on the UI
+            # pod's server-side OIDC calls so it accepts the ingress self-signed
+            # default cert. Off by default — provide global.tlsSecretName (a real
+            # cert, e.g. cert-manager) for production instead of enabling this.
             - name: NODE_TLS_REJECT_UNAUTHORIZED
               value: "0"
             {{- end }}

@@ -10,6 +10,12 @@ global:
   externalDomain: bdp.example.com
   ingressClassName: nginx
   tlsSecretName: ""            # optional pre-provisioned wildcard cert
+  # SECURITY: leave false for any real deployment. When true, the UI pod skips
+  # TLS verification on its server-side OIDC calls (NODE_TLS_REJECT_UNAUTHORIZED=0)
+  # so it accepts the ingress controller's self-signed default cert. Only for
+  # throwaway testing without a real certificate — provide global.tlsSecretName
+  # (e.g. via cert-manager) instead so verification stays on.
+  insecureSkipTlsVerify: false
   # Air-gap registry (e.g. the marketplace ACR: myregistry.azurecr.io). When set,
   # bdp-service-manager pulls tool charts as OCI artifacts from <registry>/charts/*
   # and redirects their images to <registry>/tools/* — nothing is fetched from
