@@ -101,3 +101,39 @@ subjects:
   - kind: ServiceAccount
     name: bdp-provisioner
     namespace: {{ .Release.Namespace }}
+---
+{{- /* service-manager reads pod/secret/service state (install progress,
+       health, helm-release discovery) and scales tool workloads on
+       start/stop. Scoped read + workload-scale — NOT cluster-admin. */}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bdp-service-manager
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: bdp-service-manager
+rules:
+  - apiGroups: [""]
+    resources: [pods, pods/log, services, endpoints, secrets, configmaps, namespaces, events, persistentvolumeclaims]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [delete]
+  - apiGroups: [apps]
+    resources: [deployments, statefulsets, replicasets, daemonsets, deployments/scale, statefulsets/scale]
+    verbs: [get, list, watch, patch, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: bdp-service-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: bdp-service-manager
+subjects:
+  - kind: ServiceAccount
+    name: bdp-service-manager
+    namespace: {{ .Release.Namespace }}

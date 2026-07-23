@@ -33,6 +33,10 @@ bdp-postgres
   value: {{ include "bdp.keycloakExternalIssuer" . }}
 - name: BDP_CORS_ALLOWED_ORIGINS
   value: https://{{ .Values.global.externalDomain }}
+{{- if .Values.global.airgapRegistry }}
+- name: BDP_AIRGAP_REGISTRY
+  value: {{ .Values.global.airgapRegistry | quote }}
+{{- end }}
 - name: BDP_SECRET_MASTER_KEY
   valueFrom:
     secretKeyRef: { name: bdp-platform-secrets, key: master-key }

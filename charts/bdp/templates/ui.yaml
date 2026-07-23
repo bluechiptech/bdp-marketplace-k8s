@@ -19,6 +19,16 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
+      {{- if .Values.global.keycloakHostAliasIp }}
+      # Managed-K8s LBs often don't hairpin, so the UI pod can't reach the
+      # public Keycloak host for server-side OIDC calls. Resolve it to the
+      # in-cluster ingress controller instead. The OIDC issuer must stay the
+      # external URL (token `iss` must match), so we remap the name, not the URL.
+      hostAliases:
+        - ip: {{ .Values.global.keycloakHostAliasIp | quote }}
+          hostnames:
+            - keycloak.{{ .Values.global.externalDomain }}
+      {{- end }}
       containers:
         - name: bdp-ui
           image: {{ include "bdp.image" (dict "root" . "name" "bdp-ui") }}
@@ -34,6 +44,23 @@ spec:
               value: http://bdp-gateway:7000
             - name: NEXT_PUBLIC_KEYCLOAK_URL
               value: https://keycloak.{{ .Values.global.externalDomain }}
+            # NextAuth (server-side): callback/cookie base URL and the OIDC
+            # issuer it discovers + exchanges tokens against.
+            - name: NEXTAUTH_URL
+              value: https://{{ .Values.global.externalDomain }}
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef: { name: bdp-platform-secrets, key: nextauth-secret }
+            - name: KEYCLOAK_ISSUER
+              value: https://keycloak.{{ .Values.global.externalDomain }}/realms/bdp
+            {{- if not .Values.global.tlsSecretName }}
+            # No pre-provisioned cert: the ingress serves nginx's self-signed
+            # default, so the UI pod's server-side OIDC fetch to Keycloak must
+            # not reject it. Provide global.tlsSecretName (a trusted cert) to
+            # drop this and restore full TLS verification.
+            - name: NODE_TLS_REJECT_UNAUTHORIZED
+              value: "0"
+            {{- end }}
           resources:
             {{- toYaml .Values.ui.resources | nindent 12 }}
           readinessProbe:

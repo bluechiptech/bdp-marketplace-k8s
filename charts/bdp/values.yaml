@@ -10,6 +10,17 @@ global:
   externalDomain: bdp.example.com
   ingressClassName: nginx
   tlsSecretName: ""            # optional pre-provisioned wildcard cert
+  # Air-gap registry (e.g. the marketplace ACR: myregistry.azurecr.io). When set,
+  # bdp-service-manager pulls tool charts as OCI artifacts from <registry>/charts/*
+  # and redirects their images to <registry>/tools/* — nothing is fetched from
+  # public registries. Empty leaves public-repo behaviour (dev/self-managed).
+  airgapRegistry: ""
+  # Cluster-internal IP the UI pod uses to reach keycloak.<domain> for server-side
+  # OIDC token calls. Managed-K8s load balancers often do not hairpin (a pod
+  # cannot dial the cluster's own public LB IP), so map the external Keycloak
+  # host to the ingress controller's ClusterIP here. Empty = rely on normal DNS
+  # (works when the LB hairpins or an external resolver is reachable).
+  keycloakHostAliasIp: ""
 
 billing:
   # byol | flat | metered — set per marketplace plan.
@@ -121,6 +132,10 @@ services:
   bdp-config-manager:      { port: 7004, db: bdp_config }
   bdp-service-manager:
     port: 7003
+    # Reads pod/secret/service state across the cluster to report install
+    # progress and health, and scales tool workloads on start/stop. Needs its
+    # own RBAC (the default SA has none) — SA + ClusterRole in services.yaml.
+    serviceAccount: bdp-service-manager
     db: bdp_service
     extraEnv:
       BDP_CLIENTS_PROVISIONERURL: http://bdp-provisioner:7014
@@ -169,11 +184,42 @@ services:
     # In-cluster: provisioner installs data tools via its ServiceAccount,
     # not a host kubeconfig. RBAC granted in templates/services.yaml.
     serviceAccount: bdp-provisioner
+    extraEnv:
+      # Fetches each deployment target's kubeconfig from the cluster-registry.
+      # application.yml defaults this to 127.0.0.1:7018 (the VM layout), which
+      # is unreachable in-cluster and aborts installs with ResourceAccessException.
+      BDP_CLUSTER_REGISTRY_URL: http://bdp-cluster-registry:7018
   bdp-gateway:
     port: 7000
-    # Gateway route targets — in-cluster DNS. Verify names against
-    # bdp-gateway application.yml route env bindings before GA.
-    extraEnv: {}
+    # Gateway route targets — in-cluster DNS. bdp-gateway application.yml wraps
+    # each route uri in ${BDP_SVC_<port>} / ${BDP_WS_<port>} (default 127.0.0.1
+    # for the VM); these point them at the cluster service DNS instead.
+    extraEnv:
+      BDP_SVC_7001: http://bdp-auth-service:7001
+      BDP_SVC_7002: http://bdp-cluster-manager:7002
+      BDP_SVC_7003: http://bdp-service-manager:7003
+      BDP_SVC_7004: http://bdp-config-manager:7004
+      BDP_SVC_7005: http://bdp-storage-manager:7005
+      BDP_SVC_7006: http://bdp-pipeline-manager:7006
+      BDP_SVC_7007: http://bdp-license-manager:7007
+      BDP_SVC_7008: http://bdp-sql-engine:7008
+      BDP_SVC_7009: http://bdp-catalog:7009
+      BDP_SVC_7010: http://bdp-security-policies:7010
+      BDP_SVC_7011: http://bdp-notification-service:7011
+      BDP_SVC_7012: http://bdp-backup-manager:7012
+      BDP_SVC_7013: http://bdp-service-registry:7013
+      BDP_SVC_7015: http://bdp-cloud-providers:7015
+      BDP_SVC_7016: http://bdp-metering:7016
+      BDP_SVC_7017: http://bdp-update-agent:7017
+      BDP_SVC_7018: http://bdp-cluster-registry:7018
+      BDP_SVC_7019: http://bdp-domain-manager:7019
+      BDP_SVC_7023: http://bdp-oracle-migration:7023
+      BDP_WS_7002: ws://bdp-cluster-manager:7002
+      BDP_WS_7003: ws://bdp-service-manager:7003
+      BDP_WS_7023: ws://bdp-oracle-migration:7023
+      # /ws/** is public: WebSocket JWTs ride as a query param the owning
+      # service validates (browsers can't set WS Authorization headers).
+      BDP_GATEWAY_PUBLICPATHS: /api/v1/auth/login,/api/v1/auth/register,/api/v1/auth/refresh,/actuator/health,/ws/**
 
 seed:
   image: bdp-seed          # under global.imageRegistry
