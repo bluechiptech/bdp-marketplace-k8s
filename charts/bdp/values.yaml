@@ -4,7 +4,7 @@ global:
   # Bitnami convention and would re-prefix the postgresql/redis/keycloak
   # subchart images too.
   bdpImageRegistry: ghcr.io/bluechiptech/bdp
-  bdpImageTag: "1.0.3"
+  bdpImageTag: "1.0.4"
   # Namespace installed data tools (and their per-tool UI Ingresses) live in.
   toolsNamespace: bdp-services
   # Domain the customer points at the ingress. Everything derives from it:
