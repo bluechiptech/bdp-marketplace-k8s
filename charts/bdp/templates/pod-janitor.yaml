@@ -1,0 +1,63 @@
+{{- if .Values.podJanitor.enabled }}
+# Periodically deletes dead/orphaned pods (Error, Evicted, ContainerStatusUnknown,
+# etc.) that accumulate when the node is under memory/disk pressure — kubelet
+# loses track of them and k8s doesn't garbage-collect them. Scoped to this
+# namespace (where BDP installs tools).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bdp-pod-janitor
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: bdp-pod-janitor
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: bdp-pod-janitor
+  namespace: {{ .Release.Namespace }}
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: bdp-pod-janitor }
+subjects:
+  - { kind: ServiceAccount, name: bdp-pod-janitor, namespace: {{ .Release.Namespace }} }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: bdp-pod-janitor
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.podJanitor.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 600
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: bdp-pod-janitor
+          restartPolicy: Never
+          containers:
+            - name: janitor
+              image: {{ .Values.podJanitor.image | quote }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  echo "bdp-pod-janitor run $(date)"
+                  kubectl -n {{ .Release.Namespace }} get pods --no-headers \
+                    | awk '$3 ~ /Error|Evicted|ContainerStatusUnknown|Unknown|NodeLost/ {print $1}' \
+                    | while read pod; do
+                        echo "deleting $pod"
+                        kubectl -n {{ .Release.Namespace }} delete pod "$pod" --grace-period=0 --force 2>/dev/null || true
+                      done
+                  echo "done"
+{{- end }}

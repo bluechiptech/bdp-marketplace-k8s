@@ -241,6 +241,14 @@ seed:
   image: bdp-seed          # under global.imageRegistry
   backoffLimit: 3
 
+# ── Pod janitor ──────────────────────────────────────────────────────────────
+# Auto-deletes dead/orphaned pods (Error/Evicted/ContainerStatusUnknown) that
+# pile up under node pressure. Namespace-scoped, runs on a schedule.
+podJanitor:
+  enabled: true
+  schedule: "*/20 * * * *"
+  image: alpine/k8s:1.30.2
+
 # ── cert-manager (KServe prerequisite) ───────────────────────────────────────
 # Installed alongside the platform so KServe (and any cert-consuming tool) can
 # later be provisioned via BDP. On an egress-enabled cluster the upstream
