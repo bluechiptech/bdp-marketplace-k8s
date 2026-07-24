@@ -240,3 +240,31 @@ services:
 seed:
   image: bdp-seed          # under global.imageRegistry
   backoffLimit: 3
+
+# ── cert-manager (KServe prerequisite) ───────────────────────────────────────
+# Installed alongside the platform so KServe (and any cert-consuming tool) can
+# later be provisioned via BDP. On an egress-enabled cluster the upstream
+# quay.io images work unchanged. For a STRICT air-gap listing, the images are
+# pre-mirrored to <airgapRegistry>/tools/cert-manager-* — uncomment the image
+# blocks below and set the registry to the marketplace ACR.
+cert-manager:
+  enabled: true
+  crds:
+    enabled: true
+  # image:
+  #   repository: <airgapRegistry>/tools/cert-manager-controller
+  # webhook:
+  #   image:
+  #     repository: <airgapRegistry>/tools/cert-manager-webhook
+  # cainjector:
+  #   image:
+  #     repository: <airgapRegistry>/tools/cert-manager-cainjector
+  # startupapicheck:
+  #   image:
+  #     repository: <airgapRegistry>/tools/cert-manager-startupapicheck
+
+# ── KServe CRDs ──────────────────────────────────────────────────────────────
+# The KServe controller (installed by BDP as a service) needs these CRDs to
+# exist first; its webhook validates ClusterServingRuntime objects defined here.
+kserve-crd:
+  enabled: true
