@@ -144,6 +144,94 @@ global:
         registry: bdpmarketplace.azurecr.io
         image: tools/alpine/k8s
         digest: sha256:f99618a60aba5a076461875a4e8f6fc0124668ae58c91fd7e4aecced6bd83c4d
+      # ── Observability (Task G1): kube-prometheus-stack 87.19.2 + Loki 7.1.0 ──
+      # Keyed by container name as rendered (NOT image name) — several containers
+      # share one mirrored image (grafana-sc-dashboard/grafana-sc-datasources,
+      # create/patch) and get their own key per the cainjector lesson above.
+      # Actual render-time resolution happens via each subchart's own native
+      # image.{registry,repository,digest} override (see kube-prometheus-stack:/
+      # loki: blocks below) — this block exists solely for cpa verify's scan,
+      # same as the postgresql/redis/cert-manager entries above.
+      busybox:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/busybox
+        digest: sha256:1cfa4e2b09e127b9c4ed43578d3f3c18e7d44ea47b9ea98475c0cbe9086525f8
+      kubectl:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/kubectl
+        digest: sha256:99b37df34bc4f99ee322521d4c85cb98c1ceb8f70ff0618bef84eec9fe1ebc20
+      grafana:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/grafana
+        digest: sha256:f33c692ba1a5ee15724cf6b22db65e9de39dde14d80f7d73a9546e3fc917270b
+      grafana-sc-dashboard:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/k8s-sidecar
+        digest: sha256:44065fae116464099acd5bfddb62dcb2cf53c8fa18948d215109d64a5560306e
+      grafana-sc-datasources:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/k8s-sidecar
+        digest: sha256:44065fae116464099acd5bfddb62dcb2cf53c8fa18948d215109d64a5560306e
+      kube-prometheus-stack:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/prometheus-operator
+        digest: sha256:5835318d3506dd6d8676f2a1316776ac70f1b0b7cc0bce861213559ea855b8f2
+      config-reloader:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/prometheus-config-reloader
+        digest: sha256:bf6f3527663207af1d936e4f3f27c7a4aab703c0de2a82844f95c14af35dfe19
+      create:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/kube-webhook-certgen
+        digest: sha256:490c269f2a793f75806acbaa558b63606cfdd01865307156e589347956dbc443
+      patch:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/kube-webhook-certgen
+        digest: sha256:490c269f2a793f75806acbaa558b63606cfdd01865307156e589347956dbc443
+      alertmanager:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/alertmanager
+        digest: sha256:a89f8d4520954079275441eecdb71444328bd90633dd4eddfc33b9ed657f349b
+      prometheus:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/prometheus
+        digest: sha256:335b5796a6e4355530475575253f84de20b8ad07bf899f65ed218451ce4c60b4
+      kube-state-metrics:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/kube-state-metrics
+        digest: sha256:7661da8c99b733d43117e4cba12bd9865d335e5777191d0af3d789807aded9f4
+      node-exporter:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/node-exporter
+        digest: sha256:bbfbd533202cfef891c70383ddf6f0c32acece66400ad8091a18bed7aad5db6f
+      loki:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/loki
+        digest: sha256:9b6b43f12310b10cb03de65bd45ac039366a78e31e89fa03f2eab2f699d227b3
+      loki-helm-test:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/loki-helm-test
+        digest: sha256:4c682a8a7c94b1e16c36d9712be085ffc1d8eff9d5e1a116b456c7710fdc2121
+      loki-canary:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/loki-canary
+        digest: sha256:6860b3d70223f3c1d5bb1f32cfde94b7d27ad115c7087dddb81313c173f6a29d
+      nginx:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/nginx-unprivileged
+        digest: sha256:8059701048a6cc7d64e8ab2812a44be70161bfa9ecfc01d69e95b8ff2a648705
+      memcached:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/memcached
+        digest: sha256:aac456c35cd29635b5501fefac58a2e954752006c9d159fbf520dd785e09cbba
+      exporter:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/memcached-exporter
+        digest: sha256:f3db25665b3a1dfbb043d67686f8c3b11483482684ddf475a0845c2cf50c0489
+      loki-sc-rules:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/k8s-sidecar
+        digest: sha256:4f8f7ff326827489dc3742e17cd0e04e2f89deb49f67021d2a5418d8b78e7ddc
   # Registry holding the BDP images (marketplace-managed ACR in listings).
   # NOTE: deliberately NOT named imageRegistry — global.imageRegistry is a
   # Bitnami convention and would re-prefix the postgresql/redis/keycloak
@@ -520,6 +608,54 @@ kube-prometheus-stack:
     enabled: true
     upgradeJob:
       enabled: true
+      # Task G1: air-gapped — busybox/kubectl containers of this Helm-hook Job.
+      # NOTE: this vendored chart's own upgrade/job.yaml guards the busybox
+      # digest suffix on `.Values.upgradeJob.image.sha` (a top-level key that
+      # doesn't exist) instead of `.busybox.sha` — an upstream template bug
+      # that means busybox is only ever pinned by tag here, never by digest,
+      # regardless of what's set below. tag is still required (no template
+      # default) so it must be explicit. kubectl's guard is correct and
+      # honors kubectl.sha; its tag also must be pinned explicitly — the
+      # template otherwise defaults it to the running cluster's own Kubernetes
+      # version, which may not match the v1.31.0 build mirrored to ACR.
+      image:
+        busybox:
+          registry: bdpmarketplace.azurecr.io
+          repository: tools/busybox
+          tag: "latest"
+          sha: 1cfa4e2b09e127b9c4ed43578d3f3c18e7d44ea47b9ea98475c0cbe9086525f8
+        kubectl:
+          registry: bdpmarketplace.azurecr.io
+          repository: tools/kubectl
+          tag: v1.31.0
+          sha: 99b37df34bc4f99ee322521d4c85cb98c1ceb8f70ff0618bef84eec9fe1ebc20
+  # Task G1: operator image, its dynamically-injected config-reloader sidecar
+  # (passed as a --prometheus-config-reloader= CLI arg to every Prometheus/
+  # Alertmanager pod the operator creates — never appears in a static `helm
+  # template` render, but is a real air-gap dependency), and the
+  # kube-webhook-certgen image used by both the admission create+patch Jobs.
+  # All three templates read `.image.sha` (bare hex, chart appends the
+  # "sha256:" prefix itself) — NOT `.image.digest` like the Bitnami-style
+  # subcharts above.
+  prometheusOperator:
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/prometheus-operator
+      tag: v0.92.1
+      sha: 5835318d3506dd6d8676f2a1316776ac70f1b0b7cc0bce861213559ea855b8f2
+    prometheusConfigReloader:
+      image:
+        registry: bdpmarketplace.azurecr.io
+        repository: tools/prometheus-config-reloader
+        tag: v0.92.1
+        sha: bf6f3527663207af1d936e4f3f27c7a4aab703c0de2a82844f95c14af35dfe19
+    admissionWebhooks:
+      patch:
+        image:
+          registry: bdpmarketplace.azurecr.io
+          repository: tools/kube-webhook-certgen
+          tag: "1.8.5"
+          sha: 490c269f2a793f75806acbaa558b63606cfdd01865307156e589347956dbc443
   prometheus:
     prometheusSpec:
       retention: 15d
@@ -530,6 +666,12 @@ kube-prometheus-stack:
             resources:
               requests:
                 storage: 10Gi
+      # Task G1
+      image:
+        registry: bdpmarketplace.azurecr.io
+        repository: tools/prometheus
+        tag: v3.13.1-distroless
+        sha: 335b5796a6e4355530475575253f84de20b8ad07bf899f65ed218451ce4c60b4
   # Task E4: routes every firing/resolved alert to bdp-notification-service's
   # Alertmanager webhook receiver (bdp-platform's AlertmanagerWebhookController,
   # POST /api/v1/notifications/alertmanager) so alerts show up in the BDP
@@ -540,6 +682,13 @@ kube-prometheus-stack:
   # config (global/inhibit_rules/templates unchanged); only route.receiver and
   # the receivers list differ, to point at 'bdp' instead of 'null'.
   alertmanager:
+    # Task G1
+    alertmanagerSpec:
+      image:
+        registry: bdpmarketplace.azurecr.io
+        repository: tools/alertmanager
+        tag: v0.33.1
+        sha: a89f8d4520954079275441eecdb71444328bd90633dd4eddfc33b9ed657f349b
     config:
       global:
         resolve_timeout: 5m
@@ -583,11 +732,44 @@ kube-prometheus-stack:
             - url: "http://bdp-notification-service:7011/api/v1/notifications/alertmanager"
       templates:
         - '/etc/alertmanager/config/*.tmpl'
+  # Task G1 — grandchild subcharts of kube-prometheus-stack, so their image
+  # overrides nest one level deeper than postgresql/redis/keycloak above.
+  kube-state-metrics:
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/kube-state-metrics
+      tag: v2.19.1
+      # This chart's own helper appends .image.sha after "@" with no prefix
+      # (unlike prometheus/alertmanager/prometheus-operator's bare-hex "sha"
+      # convention above) — the full "sha256:" prefix must be included here.
+      sha: sha256:7661da8c99b733d43117e4cba12bd9865d335e5777191d0af3d789807aded9f4
+  prometheus-node-exporter:
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/node-exporter
+      # This chart's own image.distroless: true default (set below the
+      # `image:` block's default in this subchart's values) makes the render
+      # helper append "-distroless" to whatever tag is set here — leave it
+      # off here or the rendered tag doubles up to "...-distroless-distroless".
+      tag: v1.12.1
+      digest: sha256:bbfbd533202cfef891c70383ddf6f0c32acece66400ad8091a18bed7aad5db6f
   grafana:
     # Fixed name (like postgresql.fullnameOverride above) so the gateway's
     # BDP_SVC_GRAFANA route target and the Ingress path added for /grafana
     # don't depend on the Helm release name.
     fullnameOverride: bdp-observability-grafana
+    # Task G1
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/grafana
+      tag: "13.1.1"
+      sha: f33c692ba1a5ee15724cf6b22db65e9de39dde14d80f7d73a9546e3fc917270b
+    sidecar:
+      image:
+        registry: bdpmarketplace.azurecr.io
+        repository: tools/k8s-sidecar
+        tag: "2.8.1"
+        sha: 44065fae116464099acd5bfddb62dcb2cf53c8fa18948d215109d64a5560306e
     grafana.ini:
       server:
         root_url: "%(protocol)s://%(domain)s/grafana"
@@ -654,6 +836,52 @@ loki:
             period: 24h
     storage:
       type: filesystem
+    # Task G1: main loki server container image.
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/loki
+      tag: "3.6.8"
+      digest: sha256:9b6b43f12310b10cb03de65bd45ac039366a78e31e89fa03f2eab2f699d227b3
   singleBinary:
     persistence:
       size: 20Gi
+  # Task G1: the loki chart's remaining image references are its own
+  # top-level keys (not grandchild subcharts — these are templates within
+  # the loki chart itself), so they nest at the same level as loki.loki
+  # above, i.e. loki.<key>.image here.
+  test:
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/loki-helm-test
+      tag: "latest"
+      digest: sha256:4c682a8a7c94b1e16c36d9712be085ffc1d8eff9d5e1a116b456c7710fdc2121
+  lokiCanary:
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/loki-canary
+      tag: "3.6.8"
+      digest: sha256:6860b3d70223f3c1d5bb1f32cfde94b7d27ad115c7087dddb81313c173f6a29d
+  gateway:
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/nginx-unprivileged
+      tag: "1.29-alpine"
+      digest: sha256:8059701048a6cc7d64e8ab2812a44be70161bfa9ecfc01d69e95b8ff2a648705
+  memcached:
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/memcached
+      tag: "1.6.39-alpine"
+      digest: sha256:aac456c35cd29635b5501fefac58a2e954752006c9d159fbf520dd785e09cbba
+  memcachedExporter:
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/memcached-exporter
+      tag: v0.15.4
+      digest: sha256:f3db25665b3a1dfbb043d67686f8c3b11483482684ddf475a0845c2cf50c0489
+  sidecar:
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/k8s-sidecar
+      tag: "2.5.0"
+      sha: 4f8f7ff326827489dc3742e17cd0e04e2f89deb49f67021d2a5418d8b78e7ddc
