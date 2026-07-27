@@ -241,7 +241,11 @@ global:
       alloy:
         registry: bdpmarketplace.azurecr.io
         image: tools/alloy
-        digest: sha256:491b0578c04983fd54fe99b587b6fab4404dc46d0dc16677bd6b00cc1140b308
+        # ACR's own digest for the pushed manifest — NOT the upstream one. A
+        # pull/tag/push re-manifests the image, so the source digest does not
+        # exist in this registry; cpa verify only checks the string, but
+        # buildbundle resolves it and fails with "not found".
+        digest: sha256:eb21f4c0858edffcdd1b385910ddeef26f692fc2c282f61baa724fc09d274a17
   # Registry holding the BDP images (marketplace-managed ACR in listings).
   # NOTE: deliberately NOT named imageRegistry — global.imageRegistry is a
   # Bitnami convention and would re-prefix the postgresql/redis/keycloak
