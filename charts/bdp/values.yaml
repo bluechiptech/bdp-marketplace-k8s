@@ -1,9 +1,154 @@
 global:
-  # Registry holding the BDP images (marketplace-managed registry in listings).
+  # ── Azure Marketplace CNAB image manifest ──────────────────────────────────
+  # Microsoft's container-package-app (cpa verify) requires EVERY image the chart
+  # can pull to be enumerated here with an ACR sha256 digest — nothing may resolve
+  # to docker.io / quay.io / ghcr.io. registry+image+digest must match what the
+  # chart renders (see the subchart image repoints and cert-manager/podJanitor
+  # blocks below). Regenerate digests with:
+  #   az acr repository show -n bdpmarketplace --image <repo>:<tag> --query digest -o tsv
+  azure:
+    images:
+      bdp-auth-service:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-auth-service
+        digest: sha256:fa09cf277bfd1f9ea479fb9b6888763483392e66e57bb1cc2707f258cc7389bf
+      bdp-backup-manager:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-backup-manager
+        digest: sha256:155c1258afd0a5d7b2d0d4dafbc2260c50222cee7021d648c98a2211f9329e56
+      bdp-catalog:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-catalog
+        digest: sha256:292f179ddba66bec38ac935c9eafb3bef802f38f90630727f2b550ebc75be79a
+      bdp-cloud-providers:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-cloud-providers
+        digest: sha256:32339904300b17d4b0a29de315ef605e1fb3edc7d3de432e7b42e51e2e22de3b
+      bdp-cluster-manager:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-cluster-manager
+        digest: sha256:53e28c5076f1f1fef602313e6a3e249f4c9cdf5ca586a283a8216023bb22768a
+      bdp-cluster-registry:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-cluster-registry
+        digest: sha256:5befb2bc8e4ef3c4856e820595c7299436e8379eade6d331cdbd6e50908e9e8d
+      bdp-config-manager:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-config-manager
+        digest: sha256:779eeeca687f8997a97c25576718bed99e893594ab2337fdeb8983c0b883dafa
+      bdp-domain-manager:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-domain-manager
+        digest: sha256:85cdaf2efb4c737cf07ec7c51f1c3a5f6fd2b8fcc6b7e8ab1f87290c0a7a0089
+      bdp-gateway:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-gateway
+        digest: sha256:4a38fee36810e00a16ad5a4e3b1007af7e3fd4d43d6930df8dc4e412795b9219
+      bdp-key-manager:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-key-manager
+        digest: sha256:9fecb06c8159c2101c5acc6a949b46c47ab0df88997f4dd5292f987ada0ab018
+      bdp-license-manager:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-license-manager
+        digest: sha256:36c2ddf351ee81ce7b0f3423519c1308f756c437918a8c5c18ab71c67bce26fc
+      bdp-metering:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-metering
+        digest: sha256:ad28fa8673ee39c87f27da11a090658db9371527dbb23973e72eb5b5c847ba91
+      bdp-notification-service:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-notification-service
+        digest: sha256:d2dd051a4c68acf5998b5b53488f95e187f14261e03bb77d87ad60b88571c88c
+      bdp-oracle-migration:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-oracle-migration
+        digest: sha256:ba8eed1db2d691615d38c75dc7175a0146e0e32eced1fbfd9784b9320cc11309
+      bdp-pipeline-manager:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-pipeline-manager
+        digest: sha256:e025b76accf51254a3968c3f3853925b4a30435f469bf02232adc2ea98cec984
+      bdp-provisioner:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-provisioner
+        digest: sha256:7b0fdc55a78914ef3459167d485bb6d54d64e9862721500fb2cbd53f595a534d
+      bdp-security-policies:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-security-policies
+        digest: sha256:47ec6f985fb92f7e50e41031ea971e950fa578a5442a738238392d4daa617f2c
+      bdp-service-manager:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-service-manager
+        digest: sha256:fd9519ecf9cad25c6e65ecaf80377e0153291ab44f19b798a8e9b430f1db179e
+      bdp-service-registry:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-service-registry
+        digest: sha256:0bb97fa70ec9f725e444db3291b6173b0216e5aed22f8b2163967b5100901d50
+      bdp-sql-engine:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-sql-engine
+        digest: sha256:c984d4ec8e513e198a5da2d604762ca7bfb90c6138f2d8608bb4da010cb356bf
+      bdp-storage-manager:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-storage-manager
+        digest: sha256:ebe46bd388b50cb9074d458c5bf1d51cf9bc8ebeee90a035733a1fd94e0fe877
+      bdp-update-agent:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-update-agent
+        digest: sha256:42db70d66a70f147416b631f12cc8ee4a0eab2b3b92099371ae614da9dbc7ffe
+      bdp-ui:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-ui
+        digest: sha256:594c7cc5e683b3118f321bd059b9e7dda93eb5b48665e552da0d243b821db0d6
+      seed:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-seed
+        digest: sha256:26f1bb8953371c0d63e467fd33bcd8a8adf607f2aee194aaca024b95b1bc8383
+      emit:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/bdp-seed
+        digest: sha256:26f1bb8953371c0d63e467fd33bcd8a8adf607f2aee194aaca024b95b1bc8383
+      keycloak:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/keycloak
+        digest: sha256:4879f37d618c7a2bc4c3cdf502e88dbd3d4aec7a867f77608a04a7fd6c1078f0
+      init-quarkus-directory:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/keycloak
+        digest: sha256:4879f37d618c7a2bc4c3cdf502e88dbd3d4aec7a867f77608a04a7fd6c1078f0
+      postgresql:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/postgresql
+        digest: sha256:04f3b0dfdb150a29404b92e180e38cad893f72ff59b1b5816827cbfb579e6c9c
+      redis:
+        registry: bdpmarketplace.azurecr.io
+        image: bdp/redis
+        digest: sha256:c1843bcdb2f413d2aff67adbaf482082673cd40ec602fa9fefad74ec685cb813
+      cert-manager-controller:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/cert-manager-controller
+        digest: sha256:eee34b3de2dd63f7e5ac459fc2d407662d433fd267d574557b76ee3c7d4bc44f
+      cert-manager-webhook:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/cert-manager-webhook
+        digest: sha256:fdcb9ac4963fa1bb0c9d7cad38f0ba2c65328aa436f8653c998594d936a96488
+      cert-manager-cainjector:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/cert-manager-cainjector
+        digest: sha256:e0ce8ae280c8d7263663b6a6d3ea5e122632936cde9bdd5321cf7109199f51aa
+      cert-manager-startupapicheck:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/cert-manager-startupapicheck
+        digest: sha256:4cbc1b022a2385ce98d454dfc206834a26a3bb07d1d0b581cdc50c34a6bf927d
+      janitor:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/alpine/k8s
+        digest: sha256:f99618a60aba5a076461875a4e8f6fc0124668ae58c91fd7e4aecced6bd83c4d
+  # Registry holding the BDP images (marketplace-managed ACR in listings).
   # NOTE: deliberately NOT named imageRegistry — global.imageRegistry is a
   # Bitnami convention and would re-prefix the postgresql/redis/keycloak
   # subchart images too.
-  bdpImageRegistry: ghcr.io/bluechiptech/bdp
+  bdpImageRegistry: bdpmarketplace.azurecr.io/bdp
   bdpImageTag: "1.0.4"
   # Namespace installed data tools (and their per-tool UI Ingresses) live in.
   toolsNamespace: bdp-services
@@ -67,8 +212,9 @@ postgresql:
   # also guarantees no collision with any keycloak-embedded postgresql.
   fullnameOverride: bdp-postgres
   image:
-    registry: docker.io
-    repository: bitnamilegacy/postgresql
+    registry: bdpmarketplace.azurecr.io
+    repository: bdp/postgresql
+    digest: sha256:04f3b0dfdb150a29404b92e180e38cad893f72ff59b1b5816827cbfb579e6c9c
   auth:
     postgresPassword: ""        # empty -> chart-generated
   primary:
@@ -103,8 +249,9 @@ postgresql:
 redis:
   enabled: true
   image:
-    registry: docker.io
-    repository: bitnamilegacy/redis
+    registry: bdpmarketplace.azurecr.io
+    repository: bdp/redis
+    digest: sha256:c1843bcdb2f413d2aff67adbaf482082673cd40ec602fa9fefad74ec685cb813
   architecture: standalone
   auth:
     enabled: false
@@ -119,8 +266,9 @@ redis:
 keycloak:
   enabled: true
   image:
-    registry: docker.io
-    repository: bitnamilegacy/keycloak
+    registry: bdpmarketplace.azurecr.io
+    repository: bdp/keycloak
+    digest: sha256:4879f37d618c7a2bc4c3cdf502e88dbd3d4aec7a867f77608a04a7fd6c1078f0
   auth:
     adminUser: admin
     adminPassword: ""           # empty -> chart-generated
@@ -263,7 +411,7 @@ services:
       BDP_GATEWAY_PUBLICPATHS: /api/v1/auth/login,/api/v1/auth/register,/api/v1/auth/refresh,/actuator/health,/ws/**,/grafana/**
 
 seed:
-  image: bdp-seed          # under global.imageRegistry
+  image: seed              # global.azure.images key (renders bdp/bdp-seed)
   backoffLimit: 3
 
 # ── Pod janitor ──────────────────────────────────────────────────────────────
@@ -272,7 +420,7 @@ seed:
 podJanitor:
   enabled: true
   schedule: "*/20 * * * *"
-  image: alpine/k8s:1.30.2
+  image: bdpmarketplace.azurecr.io/tools/alpine/k8s:1.30.2
 
 # ── cert-manager (KServe prerequisite) ───────────────────────────────────────
 # Installed alongside the platform so KServe (and any cert-consuming tool) can
@@ -284,17 +432,27 @@ cert-manager:
   enabled: true
   crds:
     enabled: true
-  # image:
-  #   repository: <airgapRegistry>/tools/cert-manager-controller
-  # webhook:
-  #   image:
-  #     repository: <airgapRegistry>/tools/cert-manager-webhook
-  # cainjector:
-  #   image:
-  #     repository: <airgapRegistry>/tools/cert-manager-cainjector
-  # startupapicheck:
-  #   image:
-  #     repository: <airgapRegistry>/tools/cert-manager-startupapicheck
+  # Air-gapped: all four cert-manager images are pulled from the marketplace ACR
+  # (mirrored from quay.io/jetstack at v1.15.3). Enumerated in global.azure.images.
+  image:
+    registry: bdpmarketplace.azurecr.io
+    repository: tools/cert-manager-controller
+    digest: sha256:eee34b3de2dd63f7e5ac459fc2d407662d433fd267d574557b76ee3c7d4bc44f
+  webhook:
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/cert-manager-webhook
+      digest: sha256:fdcb9ac4963fa1bb0c9d7cad38f0ba2c65328aa436f8653c998594d936a96488
+  cainjector:
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/cert-manager-cainjector
+      digest: sha256:e0ce8ae280c8d7263663b6a6d3ea5e122632936cde9bdd5321cf7109199f51aa
+  startupapicheck:
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/cert-manager-startupapicheck
+      digest: sha256:4cbc1b022a2385ce98d454dfc206834a26a3bb07d1d0b581cdc50c34a6bf927d
 
 # ── KServe CRDs ──────────────────────────────────────────────────────────────
 # The KServe controller (installed by BDP as a service) needs these CRDs to

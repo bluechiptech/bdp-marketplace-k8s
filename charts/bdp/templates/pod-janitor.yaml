@@ -48,7 +48,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: janitor
-              image: {{ .Values.podJanitor.image | quote }}
+              image: "{{ .Values.global.azure.images.janitor.registry }}/{{ .Values.global.azure.images.janitor.image }}@{{ .Values.global.azure.images.janitor.digest }}"
               command: ["/bin/sh", "-c"]
               args:
                 - |

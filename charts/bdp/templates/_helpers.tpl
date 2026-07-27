@@ -1,5 +1,6 @@
 {{- define "bdp.image" -}}
-{{ .root.Values.global.bdpImageRegistry }}/{{ .name }}:{{ .root.Values.global.bdpImageTag }}
+{{- $img := index .root.Values.global.azure.images .name -}}
+{{ $img.registry }}/{{ $img.image }}@{{ $img.digest }}
 {{- end -}}
 
 {{- define "bdp.keycloakInternalUrl" -}}
