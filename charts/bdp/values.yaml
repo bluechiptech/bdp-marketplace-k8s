@@ -353,8 +353,59 @@ kube-prometheus-stack:
             resources:
               requests:
                 storage: 10Gi
+  # Task E4: routes every firing/resolved alert to bdp-notification-service's
+  # Alertmanager webhook receiver (bdp-platform's AlertmanagerWebhookController,
+  # POST /api/v1/notifications/alertmanager) so alerts show up in the BDP
+  # notification inbox. Service name + port match the fixed bdp-notification-
+  # service Service (see .Values.services["bdp-notification-service"] /
+  # BDP_SVC_7011 above) — not release-name-prefixed. Structure otherwise
+  # mirrors the vendored kube-prometheus-stack chart's own default alertmanager
+  # config (global/inhibit_rules/templates unchanged); only route.receiver and
+  # the receivers list differ, to point at 'bdp' instead of 'null'.
   alertmanager:
-    config: {} # webhook wired in Task E4
+    config:
+      global:
+        resolve_timeout: 5m
+      inhibit_rules:
+        - source_matchers:
+            - 'severity = critical'
+          target_matchers:
+            - 'severity =~ warning|info'
+          equal:
+            - 'namespace'
+            - 'alertname'
+        - source_matchers:
+            - 'severity = warning'
+          target_matchers:
+            - 'severity = info'
+          equal:
+            - 'namespace'
+            - 'alertname'
+        - source_matchers:
+            - 'alertname = InfoInhibitor'
+          target_matchers:
+            - 'severity = info'
+          equal:
+            - 'namespace'
+        - target_matchers:
+            - 'alertname = InfoInhibitor'
+      route:
+        group_by: ['namespace']
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 12h
+        receiver: 'bdp'
+        routes:
+          - receiver: 'null'
+            matchers:
+              - alertname = "Watchdog"
+      receivers:
+        - name: 'null'
+        - name: 'bdp'
+          webhook_configs:
+            - url: "http://bdp-notification-service:7011/api/v1/notifications/alertmanager"
+      templates:
+        - '/etc/alertmanager/config/*.tmpl'
   grafana:
     # Fixed name (like postgresql.fullnameOverride above) so the gateway's
     # BDP_SVC_GRAFANA route target and the Ingress path added for /grafana

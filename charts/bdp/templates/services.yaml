@@ -63,6 +63,12 @@ spec:
             {{- if eq $name "bdp-service-manager" }}
             - name: BDP_SHARED_STORAGE_ENABLED
               value: {{ $root.Values.sharedStorage.enabled | quote }}
+            {{- /* Task E4: service-manager only server-side-applies a tool's
+            Grafana dashboard ConfigMap when this flag is true, so it always
+            matches whether the Grafana dashboard sidecar (observability
+            subchart below) actually exists to pick it up. */}}
+            - name: BDP_OBSERVABILITY_ENABLED
+              value: {{ $root.Values.observability.enabled | quote }}
             {{- end }}
             {{- range $k, $v := ($svc.extraEnv | default dict) }}
             - name: {{ $k }}
