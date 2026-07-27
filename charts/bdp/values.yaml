@@ -301,3 +301,89 @@ sharedStorage:
   enabled: true
   storageClass: "azurefile-csi"
   size: 50Gi
+
+# ── Observability (Task E1) ──────────────────────────────────────────────────
+# kube-prometheus-stack (Prometheus + Alertmanager + Grafana) and Loki, vendored
+# as decompressed subcharts under charts/bdp/charts/ like postgresql/redis/
+# keycloak/kserve-crd above. Metrics wiring (ServiceMonitors) is Task E2,
+# Grafana same-origin + Keycloak SSO is Task E3, Alertmanager webhook is
+# Task E4, Loki retention + catalogue entry is Task E5.
+observability:
+  enabled: true
+
+kube-prometheus-stack:
+  # The vendored `crds` subchart (charts/kube-prometheus-stack/charts/crds)
+  # must stay enabled — it's what installs the prometheus-operator CRDs at
+  # all, via Helm's native crds/ directory (applied unconditionally on first
+  # `helm install`, never touched again by `helm upgrade` — that's a Helm
+  # limitation, not a bug). `upgradeJob` turns on that same subchart's own
+  # pre-install/pre-upgrade Helm-hook Job, which runs `kubectl apply
+  # --server-side` from a bzip2'd ConfigMap of the identical CRDs — this is
+  # what actually keeps the CRDs current across `helm upgrade`, and it avoids
+  # the well-known "metadata.annotations: Too long" failure a client-side
+  # `kubectl apply` hits on these CRDs (several are 600-800KB each). No
+  # bespoke SSA CRD Job was added under charts/bdp/templates/ — this vendored
+  # chart version (87.19.2) already ships one, so we just turn it on instead
+  # of duplicating it.
+  crds:
+    enabled: true
+    upgradeJob:
+      enabled: true
+  prometheus:
+    prometheusSpec:
+      retention: 15d
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 10Gi
+  alertmanager:
+    config: {} # webhook wired in Task E4
+  grafana:
+    grafana.ini:
+      server:
+        root_url: "%(protocol)s://%(domain)s/grafana"
+        serve_from_sub_path: true
+      security:
+        allow_embedding: true
+      auth.generic_oauth:
+        enabled: false # full Keycloak OIDC block wired in Task E3
+
+# Loki — SingleBinary deployment (single pod, PVC-backed local filesystem
+# storage; no external S3/GCS/Azure object-store dependency). The upstream
+# chart's storage.type defaults to "s3" and its schemaConfig is intentionally
+# left empty (chart-level `fail` guard forces every consumer to pick one) —
+# both are overridden below to the filesystem+tsdb combination the chart's
+# own test-schema helper (loki.testSchemaObjectStore) resolves to when minio
+# is disabled, but as a real (non-test) schemaConfig so it isn't subject to
+# the "no persistence" caveat useTestSchema carries.
+loki:
+  deploymentMode: SingleBinary
+  # The chart's SimpleScalable-mode targets (write/read/backend) default to
+  # 3 replicas each regardless of deploymentMode — an upstream quirk (see
+  # templates/validate.yaml) that must be zeroed out explicitly, or the chart
+  # refuses to render ("Cannot run scalable targets... without an object
+  # storage backend").
+  write:
+    replicas: 0
+  read:
+    replicas: 0
+  backend:
+    replicas: 0
+  loki:
+    schemaConfig:
+      configs:
+        - from: "2024-01-01"
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+    storage:
+      type: filesystem
+  singleBinary:
+    persistence:
+      size: 20Gi

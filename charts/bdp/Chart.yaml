@@ -30,3 +30,13 @@ dependencies:
     version: v0.13.0
     repository: oci://ghcr.io/kserve/charts
     condition: kserve-crd.enabled
+  # Observability stack (Task E1) — metrics (prometheus-operator + grafana)
+  # and logs (loki). Vendored decompressed like the rest of charts/bdp/charts/.
+  - name: kube-prometheus-stack
+    version: "87.19.2"
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: observability.enabled
+  - name: loki
+    version: "7.1.0"
+    repository: https://grafana.github.io/helm-charts
+    condition: observability.enabled
