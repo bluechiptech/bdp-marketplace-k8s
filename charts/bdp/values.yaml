@@ -232,6 +232,16 @@ global:
         registry: bdpmarketplace.azurecr.io
         image: tools/k8s-sidecar
         digest: sha256:4f8f7ff326827489dc3742e17cd0e04e2f89deb49f67021d2a5418d8b78e7ddc
+      # ── Log collector (Task H1): Grafana Alloy 1.11.0 (app v1.18.0) ──
+      # Alloy's own config-reloader sidecar reuses the "config-reloader" key
+      # above (identical quay.io/prometheus-operator/prometheus-config-reloader
+      # image already mirrored for kube-prometheus-stack) — the alloy: values
+      # block below pins configReloader.image.tag to v0.92.1 to match so the
+      # display-only tag field and the actual digest-pinned image agree.
+      alloy:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/alloy
+        digest: sha256:491b0578c04983fd54fe99b587b6fab4404dc46d0dc16677bd6b00cc1140b308
   # Registry holding the BDP images (marketplace-managed ACR in listings).
   # NOTE: deliberately NOT named imageRegistry — global.imageRegistry is a
   # Bitnami convention and would re-prefix the postgresql/redis/keycloak
@@ -889,3 +899,96 @@ loki:
       repository: tools/k8s-sidecar
       tag: "2.5.0"
       sha: 4f8f7ff326827489dc3742e17cd0e04e2f89deb49f67021d2a5418d8b78e7ddc
+
+# ── Log collector (Task H1) ──────────────────────────────────────────────────
+# Grafana Alloy — the loki/promtail successor, current and actively
+# maintained (Promtail entered LTS-only maintenance in Feb 2025 with EOL in
+# 2026, so the log-shipping engine that will still receive fixes past this
+# platform's support horizon is Alloy, not Promtail). Deployed as a DaemonSet
+# (this chart's controller.type default — left implicit) so every node's pods
+# are covered.
+#
+# Discovery/shipping uses River config wired below (alloy.configMap.content),
+# NOT the chart's default config (empty) or the PodLogs-CRD-based mode (that
+# CRD's dependency condition is turned off — crds.create: false — since
+# nothing here creates a PodLogs resource). discovery.kubernetes (role: pod)
+# + loki.source.kubernetes tails every pod's logs via the Kubernetes API
+# server's pods/log subresource rather than a hostPath /var/log mount like
+# Promtail requires — no hostPath volume/securityContext concessions needed,
+# which matters here because this chart ships to arbitrary (including
+# managed, restricted) clusters, not just one known environment. Trade-off
+# (documented upstream): more load on the API server than node-local file
+# tailing at very high log volume — acceptable for this platform's per-tool
+# service log volumes.
+#
+# This chart's own default rbac.rules + clusterRules (rbac.create: true,
+# left at its default — not overridden here) already grant everything both
+# components need (pods/log, namespaces, nodes, nodes/pods, nodes/metrics),
+# so no RBAC override was necessary.
+alloy:
+  crds:
+    # PodLogs CRD (monitoring.grafana.com) — unused, the River config below
+    # drives discovery directly rather than via a PodLogs custom resource.
+    create: false
+  alloy:
+    configMap:
+      content: |
+        discovery.kubernetes "pods" {
+          role = "pod"
+        }
+
+        discovery.relabel "pods" {
+          targets = discovery.kubernetes.pods.targets
+
+          rule {
+            source_labels = ["__meta_kubernetes_namespace"]
+            target_label  = "namespace"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_name"]
+            target_label  = "pod"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_container_name"]
+            target_label  = "container"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_node_name"]
+            target_label  = "node"
+          }
+        }
+
+        loki.source.kubernetes "pods" {
+          targets    = discovery.relabel.pods.output
+          forward_to = [loki.write.default.receiver]
+        }
+
+        // Push path verified against the vendored loki chart's single-binary
+        // Service (fullnameOverride bdp-observability-loki, port 3100 ==
+        // loki.server.http_listen_port) — this is Loki's native HTTP API
+        // port, not the gateway/nginx Service, so no path prefix is needed
+        // beyond the standard Loki push route.
+        loki.write "default" {
+          endpoint {
+            url = "http://bdp-observability-loki:3100/loki/api/v1/push"
+          }
+        }
+  # Task H1: main container image, keyed "alloy" in global.azure.images above.
+  # tag/repository are vestigial for the image: line itself (patched in
+  # templates/containers/_agent.yaml to read global.azure.images directly,
+  # per the G1 cainjector-lesson idiom) but kept accurate for imagePullPolicy
+  # display purposes.
+  image:
+    registry: bdpmarketplace.azurecr.io
+    repository: tools/alloy
+    tag: v1.18.0
+  # config-reloader sidecar deliberately reuses the "config-reloader" key
+  # already mirrored for kube-prometheus-stack's operator-injected sidecar —
+  # identical upstream image (quay.io/prometheus-operator/prometheus-config-
+  # reloader), and its --watched-dir/--reload-url flags are generic, not
+  # Prometheus-specific, so no second image needed for the same tool.
+  configReloader:
+    image:
+      registry: bdpmarketplace.azurecr.io
+      repository: tools/prometheus-config-reloader
+      tag: v0.92.1

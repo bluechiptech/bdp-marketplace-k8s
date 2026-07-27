@@ -381,3 +381,185 @@ else, then reverted. See `task-G1-report.md` for the transcript.
 
 `helm template t charts/bdp --set observability.enabled=false` render is
 still byte-identical before/after — the disabled path was never touched.
+
+## Log collector + platform ServiceMonitors (Task H1)
+
+Two gaps found by the final whole-branch review: Loki (Task E1) had no log
+source at all (20Gi PVC, nothing ever wrote to it), and no ServiceMonitor
+existed anywhere in this chart for the 22 BDP platform services rendered by
+`templates/services.yaml` (Task E2's 26 ServiceMonitors live only in
+`bdp-helm-charts`, which this marketplace chart does not consume).
+
+### Collector choice: Grafana Alloy, not Promtail
+
+Promtail entered LTS-only maintenance in Feb 2025 with an announced 2026
+EOL — the wrong engine to depend on for a platform meant to outlive that.
+Alloy is Grafana's current, actively-maintained log/metrics/trace shipper
+and is already the pinned engine used by grafana/loki 7.1.0's own upstream
+guidance for new installs. Vendored the same way as Task E1's
+kube-prometheus-stack + Loki: `helm pull grafana/alloy --version 1.11.0
+--untar`, decompressed under `charts/bdp/charts/alloy/` (gitignored,
+working-tree only — reproduce on the build host from this document), added
+as a Chart.yaml dependency gated on the same `observability.enabled`
+condition. Alloy's own nested `charts/crds` subchart (a single
+`monitoring.grafana.com_podlogs.yaml` CRD) ships as a plain directory in the
+packaged chart already, not a `.tgz` — no further decompression needed —
+and is disabled below since nothing here uses the PodLogs CR.
+
+### Discovery/shipping config (no hostPath)
+
+`alloy.alloy.configMap.content` in `values.yaml` overrides the chart's
+default (empty) config with:
+
+```river
+discovery.kubernetes "pods" {
+  role = "pod"
+}
+
+discovery.relabel "pods" {
+  targets = discovery.kubernetes.pods.targets
+  rule { source_labels = ["__meta_kubernetes_namespace"]; target_label = "namespace" }
+  rule { source_labels = ["__meta_kubernetes_pod_name"]; target_label = "pod" }
+  rule { source_labels = ["__meta_kubernetes_pod_container_name"]; target_label = "container" }
+  rule { source_labels = ["__meta_kubernetes_pod_node_name"]; target_label = "node" }
+}
+
+loki.source.kubernetes "pods" {
+  targets    = discovery.relabel.pods.output
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint { url = "http://bdp-observability-loki:3100/loki/api/v1/push" }
+}
+```
+
+`loki.source.kubernetes` tails every pod's logs via the Kubernetes API
+server's `pods/log` subresource instead of a hostPath `/var/log` mount (the
+Promtail-style approach) — this chart ships to arbitrary clusters, including
+managed/restricted ones, so avoiding a hostPath volume + its securityContext
+implications was the deciding factor over the (lower-API-load) file-tailing
+alternative. Push path verified against the vendored Loki chart's rendered
+single-binary Service (`bdp-observability-loki`, port 3100 —
+`loki.server.http_listen_port`, the Loki server's native HTTP API, not the
+gateway/nginx Service) rather than assumed.
+
+`controller.type` defaults to `daemonset` in this chart version — left at
+default so every node's pods are covered. This chart's own default
+`rbac.rules` + `rbac.clusterRules` (left at default, `rbac.create: true`)
+already grant everything `discovery.kubernetes` + `loki.source.kubernetes`
+need (`pods`, `pods/log`, `namespaces`, `nodes`, `nodes/pods`,
+`nodes/metrics`) — no RBAC override was necessary.
+
+### CPA image sourcing
+
+Two containers, both patched to read `.Values.global.azure.images` directly
+(same idiom as every other patch in this document):
+
+**`charts/bdp/charts/alloy/templates/containers/_agent.yaml`** (container
+`alloy`) — new image, mirrored `grafana/alloy:v1.18.0` →
+`bdpmarketplace.azurecr.io/tools/alloy:v1.18.0`
+(`sha256:491b0578c04983fd54fe99b587b6fab4404dc46d0dc16677bd6b00cc1140b308`,
+confirmed identical to the upstream digest — single-manifest image, digest
+survived the pull/tag/push round trip), new `global.azure.images.alloy` key:
+
+```diff
+- name: alloy
+-  image: {{ .Values.global.image.registry | default .Values.image.registry }}/{{ .Values.image.repository }}{{ include "alloy.imageId" . }}
++  image: "{{ (index .Values.global.azure.images "alloy").registry }}/{{ (index .Values.global.azure.images "alloy").image }}@{{ (index .Values.global.azure.images "alloy").digest }}"
+```
+
+**`charts/bdp/charts/alloy/templates/containers/_watch.yaml`** (container
+`config-reloader`) — deliberately reuses the existing `config-reloader` key
+from the kube-prometheus-stack section above (identical upstream image,
+`quay.io/prometheus-operator/prometheus-config-reloader`; its
+`--watched-dir`/`--reload-url` flags are generic, not Prometheus-specific).
+Verified by temporarily overriding `global.azure.images.config-reloader.digest`
+to a dummy value and confirming it flowed through to **both** the
+kube-prometheus-stack `config-reloader` CLI arg and Alloy's `config-reloader`
+container in one render — same tool, one manifest entry, not a coincidence:
+
+```diff
+- name: config-reloader
+-  image: {{ .Values.global.image.registry | default .Values.configReloader.image.registry }}/{{ .Values.configReloader.image.repository }}{{ include "config-reloader.imageId" . }}
++  image: "{{ (index .Values.global.azure.images "config-reloader").registry }}/{{ (index .Values.global.azure.images "config-reloader").image }}@{{ (index .Values.global.azure.images "config-reloader").digest }}"
+```
+
+### Platform ServiceMonitors + selector match (`charts/bdp/templates/services.yaml`)
+
+Every `.Values.services` entry's Deployment `containerPort` and Service
+`port` are now named `http` (were unnamed) — required for a ServiceMonitor
+to target them by name, and harmless with `observability.enabled: false`
+since naming a port has no behavior of its own.
+
+A second `{{- range $name, $svc := $root.Values.services }}` block, gated on
+`observability.enabled`, emits one `ServiceMonitor` per service:
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: bdp
+    release: {{ $root.Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 30s
+```
+
+The `release: {{ $root.Release.Name }}` label is the fix for the second half
+of the gap: the vendored kube-prometheus-stack's Prometheus CR defaults
+`serviceMonitorSelector.matchLabels.release` to the Helm release name
+(`prometheusSpec.serviceMonitorSelectorNilUsesHelmValues: true`, the chart's
+own default, left untouched) — matched the convention rather than widening
+the CR's selector, so any other ServiceMonitor installed into the same
+release (present or future) is picked up the same way. `/actuator/prometheus`
+on the service's own port is correct because every service in
+`.Values.services` depends on `bdp-common`, which carries
+`micrometer-registry-prometheus` (Task E2) and does not override
+`management.server.port` — metrics are served on the same port as the app.
+
+### Verification
+
+```
+$ helm dependency list charts/bdp | grep alloy
+alloy                 1.11.0   https://grafana.github.io/helm-charts   unpacked
+
+$ helm template t charts/bdp --set observability.enabled=true | grep "kind: DaemonSet" -A2 | grep -A1 t-alloy
+kind: DaemonSet
+metadata:
+  name: t-alloy
+
+$ helm template t charts/bdp --set observability.enabled=true | grep "tools/alloy@"
+image: "bdpmarketplace.azurecr.io/tools/alloy@sha256:491b0578c04983fd54fe99b587b6fab4404dc46d0dc16677bd6b00cc1140b308"
+
+# 22 platform ServiceMonitors, one per .Values.services entry, all labeled release: t
+# matching the Prometheus CR's serviceMonitorSelector.matchLabels.release: "t"
+
+$ helm template t charts/bdp --set observability.enabled=true | grep -E "image: \"?[a-zA-Z0-9]" | grep -vc "bdpmarketplace.azurecr.io"
+0
+
+$ helm template t charts/bdp --set observability.enabled=false | grep -c "kind: DaemonSet\|kind: ServiceMonitor\|tools/alloy"
+0
+# disabled render diffs from the pre-H1 baseline ONLY in the http port names
+# added to every service's Deployment/Service (no collector, no
+# ServiceMonitors, no behavior change) — confirmed by diffing against a
+# baseline render with both the tracked H1 changes AND the untracked vendored
+# charts/bdp/charts/alloy/ directory removed (a plain git stash isn't enough:
+# the vendored directory is gitignored, so Helm would otherwise render it
+# unconditionally — Chart.yaml's condition: only applies when the dependency
+# entry itself is present).
+
+$ helm lint charts/bdp && helm lint charts/bdp --set observability.enabled=true
+==> Linting charts/bdp
+[INFO] Chart.yaml: icon is recommended
+1 chart(s) linted, 0 chart(s) failed
+(both runs)
+```

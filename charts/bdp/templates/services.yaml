@@ -30,7 +30,8 @@ spec:
         - name: {{ $name }}
           image: {{ include "bdp.image" (dict "root" $root "name" $name) }}
           ports:
-            - containerPort: {{ $svc.port }}
+            - name: http
+              containerPort: {{ $svc.port }}
           env:
             - name: SERVER_PORT
               value: {{ $svc.port | quote }}
@@ -101,8 +102,40 @@ spec:
   selector:
     app.kubernetes.io/name: {{ $name }}
   ports:
-    - port: {{ $svc.port }}
-      targetPort: {{ $svc.port }}
+    - name: http
+      port: {{ $svc.port }}
+      targetPort: http
+{{- end }}
+---
+{{- /* Task H1: one ServiceMonitor per platform service, scraping the
+       micrometer /actuator/prometheus endpoint (bdp-common, Task E2) on the
+       same named "http" port every Service above now exposes. Gated on
+       observability.enabled so a disabled render is unchanged. The `release`
+       label is required: kube-prometheus-stack's Prometheus CR defaults
+       serviceMonitorSelector to matchLabels.release: <release name> (see
+       prometheusSpec.serviceMonitorSelectorNilUsesHelmValues, on by default
+       in the vendored chart) — without it these ServiceMonitors render but
+       are never picked up. */ -}}
+{{- if $root.Values.observability.enabled }}
+{{- range $name, $svc := $root.Values.services }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: bdp
+    release: {{ $root.Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 30s
+{{- end }}
 {{- end }}
 ---
 {{- /* Provisioner installs data tools with in-cluster RBAC, not a kubeconfig */}}

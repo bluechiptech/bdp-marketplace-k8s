@@ -40,3 +40,11 @@ dependencies:
     version: "7.1.0"
     repository: https://grafana.github.io/helm-charts
     condition: observability.enabled
+  # Log collector (Task H1) — DaemonSet that discovers every pod cluster-wide
+  # and ships its logs to the Loki instance above. Without this, Loki's PVC
+  # never receives a single write. Same condition as the rest of the
+  # observability stack, same vendoring treatment (decompressed, gitignored).
+  - name: alloy
+    version: "1.11.0"
+    repository: https://grafana.github.io/helm-charts
+    condition: observability.enabled
