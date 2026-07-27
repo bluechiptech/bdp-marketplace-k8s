@@ -352,17 +352,103 @@ real `helm test` invocation):
   mode only) — none of these templates render for this configuration, so
   they never reach `cpa verify`'s scan. Flag if the deployment mode ever
   changes.
-- `--thanos-default-base-image=quay.io/thanos/thanos:v0.42.2` (operator CLI
-  arg default): no `ThanosRuler` resource and no `prometheusSpec.thanos`
-  block anywhere in this chart's values — dormant, never pulled.
 - `prometheus-operator/templates/prometheus-operator/deployment.yaml`'s
   `admissionWebhooks.deployment.image` (`prometheus-operator/admission-webhook`):
   the alternate built-in-webhook-server mode, disabled in favor of the
   `kube-webhook-certgen` create/patch Jobs pattern already pinned above.
-- `cert-manager`'s `--acme-http01-solver-image=quay.io/jetstack/cert-manager-acmesolver:v1.15.3`:
-  pre-existing gap from before this task (confirmed present already at
-  `ef0c014`), unrelated to observability. Worth a follow-up task, not fixed
-  here.
+
+Two further CLI-arg gaps flagged here in the G1 round (`--thanos-default-base-image`
+and cert-manager's `--acme-http01-solver-image`) were fixed in Task 25 — see
+below.
+
+## CLI-arg image references (Task 25)
+
+Both remaining gaps are controller CLI *arguments*, not `containers[].image`
+fields — invisible to a plain `grep image:` render scan, same class of gap as
+the `--prometheus-config-reloader`/`--thanos-default-base-image` args above.
+
+**cert-manager's `--acme-http01-solver-image`**
+(`charts/bdp/charts/cert-manager/templates/deployment.yaml`): cert-manager is
+genuinely in use in this chart and ACME HTTP-01 challenge solving is a
+plausible customer path (unlike the DNS-01/self-signed-only alternatives) —
+mirrored. `quay.io/jetstack/cert-manager-acmesolver:v1.15.3` →
+`bdpmarketplace.azurecr.io/tools/cert-manager-acmesolver:v1.15.3` via
+`docker buildx imagetools create` (manifest list preserved — confirmed via
+`docker buildx imagetools inspect` on both the ACR and upstream refs that the
+digest is identical: `sha256:71468feed...`). New
+`global.azure.images.cert-manager-acmesolver` key; template patched to read
+it directly, matching the idiom used everywhere else in this document:
+
+```diff
+-          {{- with .Values.acmesolver.image }}
+-          - --acme-http01-solver-image={{- if .registry -}}{{ .registry }}/{{- end -}}{{ .repository }}{{- if (.digest) -}} @{{ .digest }}{{- else -}}:{{ default $.Chart.AppVersion .tag }} {{- end -}}
+-          {{- end }}
++          - --acme-http01-solver-image={{ (index .Values.global.azure.images "cert-manager-acmesolver").registry }}/{{ (index .Values.global.azure.images "cert-manager-acmesolver").image }}@{{ (index .Values.global.azure.images "cert-manager-acmesolver").digest }}
+```
+
+**prometheus-operator's `--thanos-default-base-image`**
+(`charts/bdp/charts/kube-prometheus-stack/templates/prometheus-operator/deployment.yaml`):
+the G1-round note above ("no `ThanosRuler` resource and no
+`prometheusSpec.thanos` block anywhere in this chart's values — dormant,
+never pulled") is still true of this chart's own default values. Mirrored
+anyway rather than left as an unpinned default: `installService` merges a
+raw user-supplied values layer on top of `configSchema`/`defaultChartValues`
+with no schema restriction (`installService` never reads descriptor
+`configSchema` — see the persistence-observability-design audit), so an
+API/starter-pack install *could* set
+`kube-prometheus-stack.thanosRuler.enabled` or
+`kube-prometheus-stack.prometheus.prometheusSpec.thanos` and reach this
+default even though no supported UI path exposes it today. Given that route
+exists and mirroring costs one more ACR push, closing the gap now is cheaper
+than leaving a second dormant-image incident waiting to happen.
+`quay.io/thanos/thanos:v0.42.2` → `bdpmarketplace.azurecr.io/tools/thanos:v0.42.2`
+via `docker buildx imagetools create` (digest confirmed identical to upstream:
+`sha256:6249f7aaa...`). New `global.azure.images.thanos` key; the now-unused
+`$thanosRegistry` var (only consumer was this arg) removed, template patched:
+
+```diff
+         - name: {{ template "kube-prometheus-stack.name" . }}
+-          {{- $thanosRegistry := .Values.global.imageRegistry | default .Values.prometheusOperator.thanosImage.registry -}}
+           {{- /* Task G1: air-gapped — sourced from global.azure.images, not prometheusOperator.image.* */}}
+...
+-            {{- if .Values.prometheusOperator.thanosImage.sha }}
+-            - --thanos-default-base-image={{ $thanosRegistry }}/{{ .Values.prometheusOperator.thanosImage.repository }}:{{ .Values.prometheusOperator.thanosImage.tag }}@sha256:{{ .Values.prometheusOperator.thanosImage.sha }}
+-            {{- else }}
+-            - --thanos-default-base-image={{ $thanosRegistry }}/{{ .Values.prometheusOperator.thanosImage.repository }}:{{ .Values.prometheusOperator.thanosImage.tag }}
+-            {{- end }}
++            - --thanos-default-base-image={{ (index .Values.global.azure.images "thanos").registry }}/{{ (index .Values.global.azure.images "thanos").image }}@{{ (index .Values.global.azure.images "thanos").digest }}
+```
+
+### Verification
+
+```
+$ helm template t charts/bdp --set observability.enabled=true | grep -E 'quay\.io|docker\.io|ghcr\.io|registry\.k8s\.io'
+(zero hits)
+
+$ helm template t charts/bdp --set observability.enabled=true | grep "acme-http01-solver-image"
+          - --acme-http01-solver-image=bdpmarketplace.azurecr.io/tools/cert-manager-acmesolver@sha256:71468feed486c4cf3ca431d93f996771531ab2e68f261f1a15be845720802a8a
+
+$ helm template t charts/bdp --set observability.enabled=true | grep "thanos-default-base-image"
+            - --thanos-default-base-image=bdpmarketplace.azurecr.io/tools/thanos@sha256:6249f7aaadd3695df637fb2eb4cb9a9955611eee691c3970892fe9c0dc3f2db6
+
+$ helm lint charts/bdp && helm lint charts/bdp --set observability.enabled=true
+==> Linting charts/bdp
+[INFO] Chart.yaml: icon is recommended
+1 chart(s) linted, 0 chart(s) failed
+(both runs)
+```
+
+Digests recorded above are ACR-side (read back from
+`docker buildx imagetools inspect bdpmarketplace.azurecr.io/tools/<name>:<tag>`
+after the push), not the upstream digest — `imagetools create` preserves the
+source manifest list byte-for-byte (unlike a pull/tag/push round trip, which
+re-manifests and gets ACR a different digest), so in this case the two
+happen to be identical; confirmed by inspecting both refs independently
+rather than assumed.
+
+**Not yet built into a bundle**: these changes are working-tree-only
+(gitignored vendored subcharts) and land in the *next* `cpa buildbundle`, not
+the one in flight at the time of this fix — no host changes were made.
 
 ## Verification
 

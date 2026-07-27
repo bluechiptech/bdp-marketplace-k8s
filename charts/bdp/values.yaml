@@ -140,6 +140,13 @@ global:
         registry: bdpmarketplace.azurecr.io
         image: tools/cert-manager-startupapicheck
         digest: sha256:4cbc1b022a2385ce98d454dfc206834a26a3bb07d1d0b581cdc50c34a6bf927d
+      # Task 25: acme-http01-solver-image is a controller CLI arg (invisible
+      # to a plain `image:` scan), not a containers[].image field — cert-manager
+      # is genuinely in use here and ACME HTTP-01 is a plausible customer path.
+      cert-manager-acmesolver:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/cert-manager-acmesolver
+        digest: sha256:71468feed486c4cf3ca431d93f996771531ab2e68f261f1a15be845720802a8a
       janitor:
         registry: bdpmarketplace.azurecr.io
         image: tools/alpine/k8s
@@ -188,6 +195,19 @@ global:
         registry: bdpmarketplace.azurecr.io
         image: tools/kube-webhook-certgen
         digest: sha256:490c269f2a793f75806acbaa558b63606cfdd01865307156e589347956dbc443
+      # Task 25: --thanos-default-base-image is the prometheus-operator's CLI
+      # arg default for ThanosRuler/prometheusSpec.thanos, not a containers[]
+      # image. Dormant under this chart's own default values (no ThanosRuler,
+      # no prometheusSpec.thanos block) — but installService merges a raw
+      # user-values layer on top of configSchema/defaultChartValues with no
+      # schema restriction (see persistence-observability-design), so an
+      # API/starter-pack install COULD set kube-prometheus-stack.thanosRuler.enabled
+      # or prometheus.prometheusSpec.thanos and reach this default. Mirrored
+      # rather than left unpinned for that reason.
+      thanos:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/thanos
+        digest: sha256:6249f7aaadd3695df637fb2eb4cb9a9955611eee691c3970892fe9c0dc3f2db6
       alertmanager:
         registry: bdpmarketplace.azurecr.io
         image: tools/alertmanager
