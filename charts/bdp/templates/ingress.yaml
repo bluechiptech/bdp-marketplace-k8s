@@ -45,6 +45,16 @@ spec:
               service:
                 name: bdp-gateway
                 port: { number: 7000 }
+          # Grafana (Task E3) — same-origin behind the gateway, which holds
+          # the actual Path=/grafana/** Spring Cloud Gateway route (no strip,
+          # Grafana serves itself from this sub-path). More specific than /
+          # so nginx's longest-prefix match sends it to the gateway, not UI.
+          - path: /grafana
+            pathType: Prefix
+            backend:
+              service:
+                name: bdp-gateway
+                port: { number: 7000 }
           - path: /
             pathType: Prefix
             backend:

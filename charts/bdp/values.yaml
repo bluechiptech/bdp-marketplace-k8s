@@ -233,9 +233,15 @@ services:
       BDP_WS_7002: ws://bdp-cluster-manager:7002
       BDP_WS_7003: ws://bdp-service-manager:7003
       BDP_WS_7023: ws://bdp-oracle-migration:7023
+      # Grafana (Task E3) — same-origin behind the gateway, no path strip.
+      # Service name is fixed via kube-prometheus-stack.grafana.fullnameOverride
+      # below (observability block) so it doesn't depend on the release name.
+      BDP_SVC_GRAFANA: http://bdp-observability-grafana:80
       # /ws/** is public: WebSocket JWTs ride as a query param the owning
       # service validates (browsers can't set WS Authorization headers).
-      BDP_GATEWAY_PUBLICPATHS: /api/v1/auth/login,/api/v1/auth/register,/api/v1/auth/refresh,/actuator/health,/ws/**
+      # /grafana/** is public too: Grafana authenticates the browser itself
+      # via its own Keycloak generic_oauth session, not a BDP-issued JWT.
+      BDP_GATEWAY_PUBLICPATHS: /api/v1/auth/login,/api/v1/auth/register,/api/v1/auth/refresh,/actuator/health,/ws/**,/grafana/**
 
 seed:
   image: bdp-seed          # under global.imageRegistry
@@ -311,6 +317,14 @@ sharedStorage:
 observability:
   enabled: true
 
+# Grafana <-> Keycloak OAuth client secret (Task E3). Rendered into the
+# bdp-grafana-oauth Secret (templates/grafana-oauth-secret.yaml) and consumed
+# by Grafana via envValueFrom (see kube-prometheus-stack.grafana above). Must
+# match the secret the seed job (bdp-platform scripts/setup-server.js) sets
+# on the Keycloak "grafana" client — override for any real deployment.
+grafanaOAuth:
+  clientSecret: "bdp-grafana-secret"
+
 kube-prometheus-stack:
   # The vendored `crds` subchart (charts/kube-prometheus-stack/charts/crds)
   # must stay enabled — it's what installs the prometheus-operator CRDs at
@@ -342,6 +356,10 @@ kube-prometheus-stack:
   alertmanager:
     config: {} # webhook wired in Task E4
   grafana:
+    # Fixed name (like postgresql.fullnameOverride above) so the gateway's
+    # BDP_SVC_GRAFANA route target and the Ingress path added for /grafana
+    # don't depend on the Helm release name.
+    fullnameOverride: bdp-observability-grafana
     grafana.ini:
       server:
         root_url: "%(protocol)s://%(domain)s/grafana"
@@ -349,7 +367,31 @@ kube-prometheus-stack:
       security:
         allow_embedding: true
       auth.generic_oauth:
-        enabled: false # full Keycloak OIDC block wired in Task E3
+        enabled: true
+        name: BDP SSO
+        client_id: grafana
+        client_secret: $__env{GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET}
+        scopes: "openid profile email"
+        # Browser-facing: same keycloak.<externalDomain> host the main
+        # ingress (templates/ingress.yaml) and bdp.keycloakExternalIssuer
+        # helper already use — NOT <domain>/auth/... (no such path exists).
+        auth_url: "https://keycloak.{{ .Values.global.externalDomain }}/realms/bdp/protocol/openid-connect/auth"
+        # Backchannel (token exchange + userinfo): in-cluster Keycloak
+        # service DNS, matching the bdp.keycloakInternalUrl helper.
+        token_url: "http://{{ .Release.Name }}-keycloak:80/realms/bdp/protocol/openid-connect/token"
+        api_url: "http://{{ .Release.Name }}-keycloak:80/realms/bdp/protocol/openid-connect/userinfo"
+        # NOTE: the brief's literal snippet used 'bdp-admin', but this
+        # codebase's actual realm role (BDP_ROLES in scripts/setup-server.js,
+        # and SecurityConfig.java's ROLE_ prefix on the verbatim Keycloak role
+        # name) is plain 'admin' — matching that here.
+        role_attribute_path: "contains(realm_access.roles[*], 'admin') && 'GrafanaAdmin' || 'Viewer'"
+    # Client secret injected from a Secret (templates/grafana-oauth-secret.yaml)
+    # rather than inlined here — see grafanaOAuth.clientSecret below.
+    envValueFrom:
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
+        secretKeyRef:
+          name: bdp-grafana-oauth
+          key: client-secret
 
 # Loki — SingleBinary deployment (single pod, PVC-backed local filesystem
 # storage; no external S3/GCS/Azure object-store dependency). The upstream
