@@ -18,7 +18,7 @@ dependencies:
   name: openldap
   repository: https://charts.helm.sh/stable
   version: ~1.2.4
-description: Apache NiFi (BDP fork of cetic/nifi 1.2.0 - gzip subPath fix, CN=localhost proxy identity, OIDC admin default)
+description: Apache NiFi (BDP fork of cetic/nifi 1.2.0 - gzip subPath fix, CN=localhost proxy identity, OIDC admin default, persistence enabled by default)
   designed to automate the flow of data between software systems.
 home: https://nifi.apache.org/
 icon: https://svn.apache.org/repos/asf/nifi/site/trunk/images/niFi-logo-horizontal-scaled.png
@@ -40,4 +40,4 @@ maintainers:
   name: zakaria2905
   url: https://github.com/zakaria2905
 name: nifi
-version: 1.2.0-bdp.1
+version: 1.2.0-bdp.2

@@ -247,7 +247,10 @@ sidecar:
 ## ref: http://kubernetes.io/docs/user-guide/persistent-volumes/
 ##
 persistence:
-  enabled: false
+  # BDP fork: flows/content/provenance must survive pod restarts by default;
+  # the previous emptyDir default silently dropped all NiFi state on every
+  # restart. The gzip subPath fix above makes persistence.enabled=true safe.
+  enabled: true
 
   # When creating persistent storage, the NiFi helm chart can either reference an already-defined
   # storage class by name, such as "standard" or can define a custom storage class by specifying
@@ -258,7 +261,10 @@ persistence:
   # For example:
   # storageClass: standard
   #
-  # The default storage class is used if this variable is not set.
+  # Empty string = cluster default storage class. Left as an explicit key
+  # (rather than unset) so the BDP provisioner's persistence.storageClass
+  # value mapping always has something to override.
+  storageClass: ""
 
   accessModes:  [ReadWriteOnce]
 
