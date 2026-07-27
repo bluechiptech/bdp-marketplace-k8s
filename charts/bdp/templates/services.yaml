@@ -69,6 +69,15 @@ spec:
             subchart below) actually exists to pick it up. */}}
             - name: BDP_OBSERVABILITY_ENABLED
               value: {{ $root.Values.observability.enabled | quote }}
+            {{- /* Task E5 fix: BDP_LOKI_URL only set when observability is
+            enabled, so LokiLogClient's empty-string-means-disabled gate
+            (bdp.observability.loki-url:${BDP_LOKI_URL:}) matches whether
+            the Loki service (loki.fullnameOverride above) actually exists
+            in this release — omitted entirely rather than set empty. */}}
+            {{- if $root.Values.observability.enabled }}
+            - name: BDP_LOKI_URL
+              value: "http://bdp-observability-loki:3100"
+            {{- end }}
             {{- end }}
             {{- range $k, $v := ($svc.extraEnv | default dict) }}
             - name: {{ $k }}

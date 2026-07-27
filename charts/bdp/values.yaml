@@ -812,6 +812,10 @@ kube-prometheus-stack:
 # is disabled, but as a real (non-test) schemaConfig so it isn't subject to
 # the "no persistence" caveat useTestSchema carries.
 loki:
+  # Fixed name (like grafana.fullnameOverride above) so service-manager's
+  # BDP_LOKI_URL env var (templates/services.yaml) can address it by a
+  # name that doesn't depend on the Helm release name.
+  fullnameOverride: bdp-observability-loki
   deploymentMode: SingleBinary
   # The chart's SimpleScalable-mode targets (write/read/backend) default to
   # 3 replicas each regardless of deploymentMode — an upstream quirk (see
