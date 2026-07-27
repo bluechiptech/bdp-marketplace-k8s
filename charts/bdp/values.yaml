@@ -703,6 +703,23 @@ kube-prometheus-stack:
         repository: tools/alertmanager
         tag: v0.33.1
         sha: a89f8d4520954079275441eecdb71444328bd90633dd4eddfc33b9ed657f349b
+      # Persist silences (and the notification log) across pod restarts —
+      # without this, every silence created via the Alertmanager UI/API is
+      # lost the moment the pod is rescheduled. Silences are tiny (a handful
+      # of KB each even at hundreds of entries), so 2Gi is generous headroom,
+      # not a sizing based on expected volume. storageClassName is
+      # deliberately omitted (not set to "") so the cluster's default
+      # StorageClass is used — same pattern as prometheus.prometheusSpec
+      # above and postgresql/redis/loki elsewhere in this file; setting it to
+      # an empty string here would disable dynamic provisioning entirely
+      # (the NiFi chart hit exactly this trap earlier).
+      storage:
+        volumeClaimTemplate:
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 2Gi
     config:
       global:
         resolve_timeout: 5m
@@ -816,6 +833,24 @@ kube-prometheus-stack:
         secretKeyRef:
           name: bdp-grafana-oauth
           key: client-secret
+    # Task E5 follow-up: Prometheus and Alertmanager are auto-provisioned
+    # above via grafana.sidecar.datasources (they're siblings inside this
+    # same kube-prometheus-stack chart); Loki is a separate subchart so it
+    # isn't covered by that mechanism and needs an explicit entry here.
+    # Points at the fixed loki.fullnameOverride Service (bdp-observability-
+    # loki, port 3100 == loki.loki.server.http_listen_port default) so
+    # "Explore -> Loki" works in Grafana alongside BDP's own pod-log-
+    # streaming. This whole additionalDataSources list only renders while
+    # the kube-prometheus-stack subchart itself does (condition:
+    # observability.enabled in Chart.yaml), so no extra gating is needed
+    # here.
+    additionalDataSources:
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://bdp-observability-loki:3100
+        isDefault: false
+        editable: false
 
 # Loki — SingleBinary deployment (single pod, PVC-backed local filesystem
 # storage; no external S3/GCS/Azure object-store dependency). The upstream
