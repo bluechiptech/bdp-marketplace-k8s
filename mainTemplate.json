@@ -1,0 +1,86 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "clusterResourceName": {
+      "type": "string",
+      "metadata": {
+        "description": "AKS cluster name"
+      }
+    },
+    "extensionResourceName": {
+      "type": "string",
+      "metadata": {
+        "description": "Extension instance name"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    },
+    "externalDomain": {
+      "type": "string",
+      "defaultValue": "bdp.example.com"
+    },
+    "storageClass": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "postgresSizeGi": {
+      "type": "string",
+      "defaultValue": "20"
+    },
+    "redisSizeGi": {
+      "type": "string",
+      "defaultValue": "8"
+    },
+    "sharedDataSizeGi": {
+      "type": "string",
+      "defaultValue": "50"
+    }
+  },
+  "variables": {
+    "clusterExtensionTypeName": "bluechiptech.bdp",
+    "releaseTrain": "stable",
+    "plan-name": "bdp-flat",
+    "plan-publisher": "bluechiptech",
+    "plan-offerID": "bdp"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.KubernetesConfiguration/extensions",
+      "apiVersion": "2024-11-01",
+      "name": "[parameters('extensionResourceName')]",
+      "scope": "[concat('Microsoft.ContainerService/managedClusters/', parameters('clusterResourceName'))]",
+      "location": "[parameters('location')]",
+      "plan": {
+        "name": "[variables('plan-name')]",
+        "publisher": "[variables('plan-publisher')]",
+        "product": "[variables('plan-offerID')]"
+      },
+      "properties": {
+        "extensionType": "[variables('clusterExtensionTypeName')]",
+        "autoUpgradeMinorVersion": true,
+        "releaseTrain": "[variables('releaseTrain')]",
+        "configurationSettings": {
+          "global.externalDomain": "[parameters('externalDomain')]",
+          "global.storageClass": "[parameters('storageClass')]",
+          "postgresql.primary.persistence.size": "[concat(parameters('postgresSizeGi'), 'Gi')]",
+          "redis.master.persistence.size": "[concat(parameters('redisSizeGi'), 'Gi')]",
+          "sharedStorage.size": "[concat(parameters('sharedDataSizeGi'), 'Gi')]"
+        },
+        "scope": {
+          "cluster": {
+            "releaseNamespace": "bdp"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "location": {
+      "type": "string",
+      "value": "[parameters('location')]"
+    }
+  }
+}

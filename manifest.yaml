@@ -1,0 +1,11 @@
+applicationName: bdp
+publisher: bluechiptech
+description: Bluechip Data Platform - data-tool management plane for AKS
+version: 1.0.5
+helmChart: ./charts/bdp
+clusterArmTemplate: ./mainTemplate.json
+uiDefinition: ./createUiDefinition.json
+registryServer: bdpmarketplace.azurecr.io
+extensionRegistrationParameters:
+  defaultScope: cluster
+  namespace: bdp

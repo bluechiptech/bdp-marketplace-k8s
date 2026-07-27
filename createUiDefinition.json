@@ -1,0 +1,136 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+  "handler": "Microsoft.Azure.CreateUIDef",
+  "version": "0.1.2-preview",
+  "parameters": {
+    "config": {
+      "isWizard": false,
+      "basics": {
+        "resourceGroup": {
+          "allowExisting": true
+        }
+      }
+    },
+    "basics": [
+      {
+        "name": "clusterResourceName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "AKS cluster name",
+        "defaultValue": "",
+        "toolTip": "AKS cluster name",
+        "constraints": {
+          "required": true,
+          "regex": "^[a-zA-Z0-9.-]{1,63}$",
+          "validationMessage": "1-63 chars: letters, numbers, dot, hyphen"
+        }
+      },
+      {
+        "name": "extensionResourceName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Extension name",
+        "defaultValue": "bdp",
+        "toolTip": "Extension name",
+        "constraints": {
+          "required": true,
+          "regex": "^[a-zA-Z0-9.-]{1,63}$",
+          "validationMessage": "1-63 chars: letters, numbers, dot, hyphen"
+        }
+      },
+      {
+        "name": "externalDomain",
+        "type": "Microsoft.Common.TextBox",
+        "label": "External domain",
+        "defaultValue": "bdp.example.com",
+        "toolTip": "External domain",
+        "constraints": {
+          "required": true,
+          "regex": "^[a-zA-Z0-9.-]{1,63}$",
+          "validationMessage": "1-63 chars: letters, numbers, dot, hyphen"
+        }
+      }
+    ],
+    "steps": [
+      {
+        "name": "storage",
+        "label": "Storage",
+        "subLabel": {
+          "preValidation": "Configure persistent volume sizing.",
+          "postValidation": "Done"
+        },
+        "bladeTitle": "Storage",
+        "elements": [
+          {
+            "name": "storageInfo",
+            "type": "Microsoft.Common.InfoBox",
+            "visible": true,
+            "options": {
+              "icon": "Info",
+              "text": "Storage class applies to NEW installs only — changing it later does not move or resize existing volumes. Sizes set the initial PersistentVolumeClaim capacity; most CSI drivers support online expansion afterwards, but shrinking a volume is not supported."
+            }
+          },
+          {
+            "name": "storageClass",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Storage class",
+            "defaultValue": "Cluster default (recommended)",
+            "toolTip": "The Kubernetes StorageClass used for platform PersistentVolumeClaims (PostgreSQL, Redis, shared data). New-install only. 'Cluster default' uses whatever StorageClass your AKS cluster marks as default.",
+            "constraints": {
+              "required": true,
+              "allowedValues": [
+                { "label": "Cluster default (recommended)", "value": "" },
+                { "label": "Azure Disk — Standard SSD (managed-csi)", "value": "managed-csi" },
+                { "label": "Azure Disk — Premium SSD (managed-csi-premium)", "value": "managed-csi-premium" }
+              ]
+            }
+          },
+          {
+            "name": "postgresSizeGi",
+            "type": "Microsoft.Common.TextBox",
+            "label": "PostgreSQL volume size (GiB)",
+            "defaultValue": "20",
+            "toolTip": "Size of the PostgreSQL primary PersistentVolumeClaim, in GiB.",
+            "constraints": {
+              "required": true,
+              "regex": "^[1-9][0-9]{0,3}$",
+              "validationMessage": "Enter a whole number of GiB between 1 and 9999."
+            }
+          },
+          {
+            "name": "redisSizeGi",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Redis volume size (GiB)",
+            "defaultValue": "8",
+            "toolTip": "Size of the Redis master PersistentVolumeClaim, in GiB.",
+            "constraints": {
+              "required": true,
+              "regex": "^[1-9][0-9]{0,3}$",
+              "validationMessage": "Enter a whole number of GiB between 1 and 9999."
+            }
+          },
+          {
+            "name": "sharedDataSizeGi",
+            "type": "Microsoft.Common.TextBox",
+            "label": "Shared data volume size (GiB)",
+            "defaultValue": "50",
+            "toolTip": "Size of the shared RWX PersistentVolumeClaim (bdp-shared-data) used for cross-tool drop folders, in GiB.",
+            "constraints": {
+              "required": true,
+              "regex": "^[1-9][0-9]{0,4}$",
+              "validationMessage": "Enter a whole number of GiB between 1 and 99999."
+            }
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "clusterResourceName": "[basics('clusterResourceName')]",
+      "extensionResourceName": "[basics('extensionResourceName')]",
+      "externalDomain": "[basics('externalDomain')]",
+      "location": "[location()]",
+      "storageClass": "[steps('storage').storageClass]",
+      "postgresSizeGi": "[steps('storage').postgresSizeGi]",
+      "redisSizeGi": "[steps('storage').redisSizeGi]",
+      "sharedDataSizeGi": "[steps('storage').sharedDataSizeGi]"
+    }
+  }
+}
