@@ -28,6 +28,18 @@ global:
   # pull, which is fine for public tool charts). Stored in a Secret, not env.
   airgapRegistryUsername: ""
   airgapRegistryPassword: ""
+  # Administrator contact captured from the marketplace UI (Task F1). Not yet
+  # consumed by a specific service — reserved for future support/notification
+  # wiring. Purely a pass-through value today.
+  adminEmail: ""
+  # Global StorageClass override for platform PersistentVolumeClaims. Empty
+  # (default) leaves postgresql/redis/keycloak's embedded postgresql on the
+  # cluster's default StorageClass, exactly as before this key existed — the
+  # Bitnami subcharts already read global.storageClass via their own
+  # common.storage.class helper (see charts/bdp/charts/{postgresql,redis}),
+  # so no template changes were needed here. New-install only: changing this
+  # after deployment does not move or resize existing volumes.
+  storageClass: ""
   # Cluster-internal IP the UI pod uses to reach keycloak.<domain> for server-side
   # OIDC token calls. Managed-K8s load balancers often do not hairpin (a pod
   # cannot dial the cluster's own public LB IP), so map the external Keycloak
@@ -96,6 +108,13 @@ redis:
   architecture: standalone
   auth:
     enabled: false
+  master:
+    persistence:
+      # Explicit for documentation parity with postgresql.primary.persistence.size
+      # above — this matches the subchart's own default (charts/redis/values.yaml),
+      # so setting it here changes nothing; it's the marketplace UI's redisSizeGi
+      # parameter target (Task F1).
+      size: 8Gi
 
 keycloak:
   enabled: true
