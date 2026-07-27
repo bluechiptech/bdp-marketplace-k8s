@@ -3,7 +3,10 @@
 FROM node:20-alpine
 RUN apk add --no-cache bash curl jq postgresql-client openssl
 COPY dist/scripts/setup-server.js /seed/setup-server.js
-COPY dist/config/authz-bdp.json  /seed/authz-bdp.json
+# collect-artifacts.sh (shared with the VM offer) stages this under
+# config/keycloak/, mirroring its layout in the platform repo — read it from
+# there rather than a flattened path, so no manual copy step is needed.
+COPY dist/config/keycloak/authz-bdp.json /seed/authz-bdp.json
 COPY seed/entrypoint.sh          /seed/entrypoint.sh
 RUN chmod +x /seed/entrypoint.sh && adduser -S -u 10001 bdp
 USER 10001
