@@ -5,7 +5,7 @@
 applicationName: bdp
 publisher: bluechiptech            # Partner Center publisher ID
 description: Bluechip Data Platform — data-tool management plane for AKS
-version: 1.0.4
+version: 1.0.5
 
 helmChart:
   path: ../../charts/bdp
