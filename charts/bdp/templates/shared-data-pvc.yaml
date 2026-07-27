@@ -1,0 +1,13 @@
+{{- if .Values.sharedStorage.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bdp-shared-data
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: {{ .Values.sharedStorage.storageClass | default "azurefile-csi" }}
+  resources:
+    requests:
+      storage: {{ .Values.sharedStorage.size | default "50Gi" }}
+{{- end }}

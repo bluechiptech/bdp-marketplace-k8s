@@ -276,3 +276,22 @@ cert-manager:
 # exist first; its webhook validates ClusterServingRuntime objects defined here.
 kserve-crd:
   enabled: true
+
+# ── Shared data volume (Task D1) ─────────────────────────────────────────────
+# Optional RWX PVC (bdp-shared-data) that tools opting in via their descriptor's
+# top-level `sharedStorage` block mount at a common path (e.g. a shared
+# drop-folder or driver-jars directory for NiFi/Spark/Airflow). Disabled by
+# default; enable per-deployment once a ReadWriteMany-capable StorageClass is
+# available.
+#
+# Local kind clusters: kind ships no RWX-capable StorageClass by default.
+# rancher.io/local-path (kind's bundled provisioner, often aliased "standard")
+# only satisfies ReadWriteOnce and is single-node — set storageClassName:
+# "standard" here only for local smoke-testing on a single-node kind cluster,
+# where "RWX" in practice just means "the one node can read/write it"; it does
+# NOT provide true multi-node ReadWriteMany semantics. Use azurefile-csi (or
+# another real RWX class) for anything beyond single-node local dev.
+sharedStorage:
+  enabled: false
+  storageClass: "azurefile-csi"
+  size: 50Gi
