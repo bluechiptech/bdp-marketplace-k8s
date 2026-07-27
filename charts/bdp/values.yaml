@@ -839,6 +839,13 @@ loki:
   backend:
     replicas: 0
   loki:
+    # Single-tenant deployment: one BDP install == one tenant. The loki chart
+    # defaults this to true, which makes Loki reject every push and query that
+    # arrives without an X-Scope-OrgID header (401 "no org id") — neither the
+    # Alloy collector (Task H1) nor service-manager's LokiLogClient (Task E5)
+    # sends one, so with the default the 20Gi volume would silently stay empty
+    # and log queries would always fail. Disabling auth fixes both ends at once.
+    auth_enabled: false
     schemaConfig:
       configs:
         - from: "2024-01-01"
