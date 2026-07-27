@@ -280,9 +280,12 @@ kserve-crd:
 # ── Shared data volume (Task D1) ─────────────────────────────────────────────
 # Optional RWX PVC (bdp-shared-data) that tools opting in via their descriptor's
 # top-level `sharedStorage` block mount at a common path (e.g. a shared
-# drop-folder or driver-jars directory for NiFi/Spark/Airflow). Disabled by
-# default; enable per-deployment once a ReadWriteMany-capable StorageClass is
-# available.
+# drop-folder or driver-jars directory for NiFi/Spark/Airflow). Enabled by
+# default (per the original design) — service-manager only injects the mount
+# into a chart's values when BOTH this flag AND the descriptor opt-in are true
+# (see BDP_SHARED_STORAGE_ENABLED below and bdp-platform's
+# ServiceManagerService/SharedStorageValues), so flipping this to false is
+# enough to disable the feature end-to-end without touching descriptors.
 #
 # Local kind clusters: kind ships no RWX-capable StorageClass by default.
 # rancher.io/local-path (kind's bundled provisioner, often aliased "standard")
@@ -290,8 +293,11 @@ kserve-crd:
 # "standard" here only for local smoke-testing on a single-node kind cluster,
 # where "RWX" in practice just means "the one node can read/write it"; it does
 # NOT provide true multi-node ReadWriteMany semantics. Use azurefile-csi (or
-# another real RWX class) for anything beyond single-node local dev.
+# another real RWX class) for anything beyond single-node local dev. Note
+# that a bare local kind cluster with no BDP umbrella chart installed at all
+# never creates this PVC regardless of this value — service-manager's
+# BDP_SHARED_STORAGE_ENABLED env only exists once the chart is deployed.
 sharedStorage:
-  enabled: false
+  enabled: true
   storageClass: "azurefile-csi"
   size: 50Gi

@@ -57,6 +57,13 @@ spec:
               valueFrom:
                 secretKeyRef: { name: bdp-platform-secrets, key: minio-secret-key }
             {{- end }}
+            {{- /* Task D1 fix: service-manager only injects the bdp-shared-data
+            mount into a chart's values when this flag is true, so it always
+            matches whether the PVC below is actually enabled/created. */}}
+            {{- if eq $name "bdp-service-manager" }}
+            - name: BDP_SHARED_STORAGE_ENABLED
+              value: {{ $root.Values.sharedStorage.enabled | quote }}
+            {{- end }}
             {{- range $k, $v := ($svc.extraEnv | default dict) }}
             - name: {{ $k }}
               value: {{ $v | quote }}
