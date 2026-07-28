@@ -17,5 +17,41 @@
         <comment/>
     </rootGroup>
     <controllerServices/>
-    <reportingTasks/>
+    <reportingTasks>
+{{- if .Values.metrics.prometheus.enabled }}
+        <reportingTask>
+            <id>{{ default uuidv4 }}</id>
+            <name>PrometheusReportingTask</name>
+            <comment>BDP fork: metrics.prometheus.enabled only opens the port/Service (templates/statefulset.yaml,
+            templates/service.yaml) -- NiFi never starts a listener on it unless a PrometheusReportingTask is
+            actually defined and RUNNING. Verified against org.apache.nifi.reporting.prometheus.PrometheusReportingTask
+            (nifi-prometheus-nar, bundled with core NiFi) at nifi 1.23.2.</comment>
+            <class>org.apache.nifi.reporting.prometheus.PrometheusReportingTask</class>
+            <bundle>
+                <group>org.apache.nifi</group>
+                <artifact>nifi-prometheus-nar</artifact>
+                <version>{{ .Chart.AppVersion }}</version>
+            </bundle>
+            <schedulingPeriod>60 sec</schedulingPeriod>
+            <scheduledState>RUNNING</scheduledState>
+            <schedulingStrategy>TIMER_DRIVEN</schedulingStrategy>
+            <property>
+                <name>prometheus-reporting-task-metrics-endpoint-port</name>
+                <value>{{ .Values.metrics.prometheus.port }}</value>
+            </property>
+            <property>
+                <name>prometheus-reporting-task-metrics-strategy</name>
+                <value>All Components</value>
+            </property>
+            <property>
+                <name>prometheus-reporting-task-metrics-send-jvm</name>
+                <value>true</value>
+            </property>
+            <property>
+                <name>prometheus-reporting-task-client-auth</name>
+                <value>No Authentication</value>
+            </property>
+        </reportingTask>
+{{- end }}
+    </reportingTasks>
 </flowController>
