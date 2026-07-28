@@ -543,6 +543,12 @@ podJanitor:
   enabled: true
   schedule: "*/20 * * * *"
   image: bdpmarketplace.azurecr.io/tools/alpine/k8s:1.30.2
+  # How long a Completed/Succeeded pod is kept before the janitor sweeps it.
+  # Long enough that a just-finished install/hook Job still has its logs
+  # available to whoever is debugging it; short enough that finished pods do
+  # not accumulate indefinitely (37 had piled up on the dev server).
+  # Anything older than this, or aged in hours/days, is deleted.
+  completedRetentionMinutes: 60
 
 # ── cert-manager (KServe prerequisite) ───────────────────────────────────────
 # Installed alongside the platform so KServe (and any cert-consuming tool) can
