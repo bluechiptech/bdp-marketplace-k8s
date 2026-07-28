@@ -905,6 +905,20 @@ loki:
     # sends one, so with the default the 20Gi volume would silently stay empty
     # and log queries would always fail. Disabling auth fixes both ends at once.
     auth_enabled: false
+    commonConfig:
+      # MUST be 1 for SingleBinary. The loki chart defaults this to 3 while
+      # SingleBinary runs exactly one replica, so the ring never reaches quorum
+      # and Loki rejects EVERY write:
+      #   POST /loki/api/v1/push (500) "at least 2 live replicas required,
+      #   could only find 1"
+      # and every query with "too many unhealthy instances in the ring".
+      #
+      # Silent from the outside — pods Ready, nothing CrashLooping, Grafana's
+      # Loki datasource present — but zero logs ingested and BDP's pod-log
+      # streaming (Task E5) returning nothing. Found on the dev server and
+      # fixed in the standalone bdp-observability chart 1.0.4; this umbrella
+      # carried the same default, so Loki had never ingested here either.
+      replication_factor: 1
     schemaConfig:
       configs:
         - from: "2024-01-01"
