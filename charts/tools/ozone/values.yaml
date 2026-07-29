@@ -52,15 +52,19 @@ resources:
       memory: 512Mi
     limits:
       memory: 1Gi
+  # s3g and recon are JVMs (heap = 1/4 of the container limit under Java 11's
+  # container support). At a 512Mi limit both were OOMKilled ~5s into startup,
+  # every restart, forever -- 1536Mi/2Gi is the floor at which Ozone 1.4
+  # actually comes up.
   s3g:
     requests:
       cpu: 100m
-      memory: 256Mi
-    limits:
       memory: 512Mi
+    limits:
+      memory: 1536Mi
   recon:
     requests:
       cpu: 100m
-      memory: 256Mi
-    limits:
       memory: 512Mi
+    limits:
+      memory: 2Gi
