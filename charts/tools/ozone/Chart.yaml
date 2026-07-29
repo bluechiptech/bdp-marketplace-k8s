@@ -1,0 +1,5 @@
+apiVersion: v2
+name: ozone
+description: Apache Ozone — distributed object store with S3 Gateway
+version: 1.4.1
+appVersion: "1.4.0"

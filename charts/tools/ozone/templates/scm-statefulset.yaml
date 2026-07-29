@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-scm
+  labels:
+    app.kubernetes.io/name: ozone
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: storage-container-manager
+spec:
+  serviceName: {{ .Release.Name }}-scm
+  replicas: {{ .Values.ozone.scm.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ozone
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: scm
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ozone
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: scm
+    spec:
+      containers:
+        - name: scm
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              if [ ! -f /data/metadata/scm/current/VERSION ]; then
+                echo "SCM not initialized — running ozone scm --init ..."
+                /opt/hadoop/bin/ozone scm --init 2>&1
+                echo "SCM init exit code: $?"
+              else
+                echo "SCM already initialized."
+              fi
+              echo "Starting SCM..."
+              exec /opt/hadoop/bin/ozone scm
+          ports:
+            - name: rpc
+              containerPort: 9860
+            - name: http
+              containerPort: 9876
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /opt/hadoop/etc/hadoop/ozone-site.xml
+              subPath: ozone-site.xml
+            - name: config
+              mountPath: /opt/hadoop/etc/hadoop/log4j.properties
+              subPath: log4j.properties
+          resources:
+            {{- toYaml .Values.resources.scm | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9876
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-config
+        {{- if ne .Values.persistence.type "pvc" }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+  {{- if eq .Values.persistence.type "pvc" }}
+  # Sibling of `template`, NOT inside template.spec. Indented at 6 spaces it
+  # landed in spec.template.spec, where Kubernetes silently discards it as an
+  # unknown field -- no PVC was ever created, and the container's
+  # `volumeMounts: - name: data` then failed with `Not found: "data"`, taking
+  # the whole install down. Only the pvc path was affected; the ephemeral
+  # branch above supplies its own emptyDir named `data`, which is why this
+  # went unnoticed and why Ozone could only ever run without persistence.
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.persistence.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.scm.size }}
+  {{- end }}

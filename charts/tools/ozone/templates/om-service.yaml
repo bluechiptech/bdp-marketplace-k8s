@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-om
+  labels:
+    app.kubernetes.io/name: ozone
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: om
+spec:
+  type: {{ .Values.omService.type }}
+  ports:
+    - name: rpc
+      port: 9862
+      targetPort: rpc
+    - name: http
+      port: 9874
+      targetPort: http
+      {{- if eq .Values.omService.type "NodePort" }}
+      nodePort: {{ .Values.omService.nodePort }}
+      {{- end }}
+  selector:
+    app.kubernetes.io/name: ozone
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: om

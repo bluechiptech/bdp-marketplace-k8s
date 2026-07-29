@@ -1,0 +1,66 @@
+image:
+  repository: apache/ozone
+  tag: "1.4.0"
+  pullPolicy: IfNotPresent
+
+ozone:
+  om:
+    replicas: 1
+  scm:
+    replicas: 1
+  datanode:
+    replicas: 3
+
+persistence:
+  type: pvc            # pvc | emptyDir
+  storageClass: ""
+  datanode: {size: 100Gi}
+  om: {size: 10Gi}
+  scm: {size: 10Gi}
+
+omService:
+  type: NodePort
+  nodePort: 30500
+
+s3gService:
+  type: NodePort
+  nodePort: 30878
+
+reconService:
+  type: NodePort
+  nodePort: 30501
+
+hdfs:
+  enabled: false
+
+resources:
+  om:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  scm:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  datanode:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  s3g:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  recon:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi

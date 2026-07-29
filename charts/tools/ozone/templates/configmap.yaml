@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  labels:
+    app.kubernetes.io/name: ozone
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  ozone-site.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <configuration>
+      <property>
+        <name>ozone.om.address</name>
+        <value>{{ .Release.Name }}-om-0.{{ .Release.Name }}-om.{{ .Release.Namespace }}.svc.cluster.local</value>
+      </property>
+      <property>
+        <name>ozone.scm.names</name>
+        <value>{{ .Release.Name }}-scm-0.{{ .Release.Name }}-scm.{{ .Release.Namespace }}.svc.cluster.local</value>
+      </property>
+      <property>
+        <name>ozone.scm.datanode.id.dir</name>
+        <value>/data/metadata</value>
+      </property>
+      <property>
+        <name>ozone.metadata.dirs</name>
+        <value>/data/metadata</value>
+      </property>
+      <property>
+        <name>hdds.datanode.dir</name>
+        <value>/data/hdds</value>
+      </property>
+      <property>
+        <name>ozone.replication</name>
+        <value>1</value>
+      </property>
+      <property>
+        <name>ozone.replication.type</name>
+        <value>RATIS</value>
+      </property>
+      <property>
+        <name>ozone.scm.client.address</name>
+        <value>{{ .Release.Name }}-scm-0.{{ .Release.Name }}-scm.{{ .Release.Namespace }}.svc.cluster.local</value>
+      </property>
+      <property>
+        <name>ozone.scm.block.client.address</name>
+        <value>{{ .Release.Name }}-scm-0.{{ .Release.Name }}-scm.{{ .Release.Namespace }}.svc.cluster.local</value>
+      </property>
+      <property>
+        <name>ozone.s3g.http-address</name>
+        <value>0.0.0.0:9878</value>
+      </property>
+      <property>
+        <name>ozone.recon.http-address</name>
+        <value>0.0.0.0:9888</value>
+      </property>
+      <property>
+        <name>ozone.om.http-address</name>
+        <value>0.0.0.0:9874</value>
+      </property>
+      <property>
+        <name>ozone.scm.http-address</name>
+        <value>0.0.0.0:9876</value>
+      </property>
+    </configuration>
+  log4j.properties: |
+    log4j.rootLogger=INFO, stdout
+    log4j.appender.stdout=org.apache.log4j.ConsoleAppender
+    log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
+    log4j.appender.stdout.layout.ConversionPattern=%d{ISO8601} %-5p %c{1} - %m%n

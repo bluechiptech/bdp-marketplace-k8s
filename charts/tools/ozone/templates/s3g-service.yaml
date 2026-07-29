@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-s3g
+  labels:
+    app.kubernetes.io/name: ozone
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: s3-gateway
+spec:
+  type: {{ .Values.s3gService.type }}
+  ports:
+    - name: s3
+      port: 9878
+      targetPort: s3
+      {{- if eq .Values.s3gService.type "NodePort" }}
+      nodePort: {{ .Values.s3gService.nodePort }}
+      {{- end }}
+  selector:
+    app.kubernetes.io/name: ozone
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: s3g
