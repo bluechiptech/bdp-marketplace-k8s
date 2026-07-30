@@ -30,6 +30,12 @@ reconService:
   type: NodePort
   nodePort: 30501
 
+# Raw ozone-site.xml properties, merged into the generated config and rendered
+# last so they also override the defaults the chart sets. Without this, changing
+# any Ozone setting means rebuilding the chart.
+properties:
+  safetyValve: {}
+
 hdfs:
   enabled: false
 

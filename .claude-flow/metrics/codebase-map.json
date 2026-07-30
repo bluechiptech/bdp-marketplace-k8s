@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-07-30T01:26:18.701Z",
+  "projectRoot": "F:\\spring_cloud\\spring_cloud\\bdp_kubernates\\bdp-marketplace-k8s",
+  "structure": {
+    "hasPackageJson": false,
+    "hasTsConfig": false,
+    "hasClaudeConfig": false,
+    "hasClaudeFlow": true
+  },
+  "scannedAt": 1785374778701
+}

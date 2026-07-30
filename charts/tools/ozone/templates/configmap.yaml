@@ -61,6 +61,18 @@ data:
         <name>ozone.scm.http-address</name>
         <value>0.0.0.0:9876</value>
       </property>
+{{- /*
+  Escape hatch. Every property above is fixed by this template, so before this
+  there was no way to set any Ozone setting without rebuilding the chart --
+  which is the whole problem the platform's configurability work exists to
+  remove. Rendered last so an operator can also override any default above.
+*/}}
+{{- range $name, $value := .Values.properties.safetyValve }}
+      <property>
+        <name>{{ $name }}</name>
+        <value>{{ $value }}</value>
+      </property>
+{{- end }}
     </configuration>
   log4j.properties: |
     log4j.rootLogger=INFO, stdout
