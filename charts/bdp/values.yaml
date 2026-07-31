@@ -11,103 +11,103 @@ global:
       bdp-auth-service:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-auth-service
-        digest: sha256:2a7a504ebcb7c241997423a8100272f0ae95fc9780e1ef1d170bcf43ef14f9c5
+        digest: sha256:a8601378e56e412cf95e3feb8b260a03fe778740c9c91cfb93f18dc10e5029fc
       bdp-backup-manager:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-backup-manager
-        digest: sha256:ea99a470ab5aceeb78dfa6b652d9e17af8047569170a5c27a28b0e5406d4c067
+        digest: sha256:1ef9fb1bf954cdcc7b3ab17a40d85c6943c156bc2163b0d56275e8e1f1eb7897
       bdp-catalog:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-catalog
-        digest: sha256:9f96cfa82b773ab7522dad1dcfd158495144bd2d96ecca8c9fe953f5a567e1a9
+        digest: sha256:bf44b797a3057e2e75728d005f41d7544471954c3676247c559853354b795b7d
       bdp-cloud-providers:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-cloud-providers
-        digest: sha256:316a6e0eaae857e597116e01abe842e182425a801b45bb65273511bb6904604b
+        digest: sha256:63d10df8ad8c317fb725b0403126b076bf0f2a460e1adf8e7b5206458413f258
       bdp-cluster-manager:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-cluster-manager
-        digest: sha256:97291d91dc45be2fca8ffb658d8d4df7f2929b0626e499689a29b97116e272c5
+        digest: sha256:7697633f5b646f01c4287eae2e394e9f785b8f4562d8b16f88a54a408e21ac7e
       bdp-cluster-registry:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-cluster-registry
-        digest: sha256:98d5fd74642cc0f3a3a48eca9825d8d589841fadf705f9aea6a24cb4a4a23b15
+        digest: sha256:cbaffec42c71364cced68b247abe1b915aa8fc4a2391d8bd97ca2c7daa14fc05
       bdp-config-manager:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-config-manager
-        digest: sha256:3a8dea192d3bf9f474a6b7c5c11683262eb42dcadf0ccd045ea328e183dbd35c
+        digest: sha256:d0f44e79c762dd514fba10938855621ee728eb9e852776f82ea522549a4226c8
       bdp-domain-manager:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-domain-manager
-        digest: sha256:cced13d79b2fe24c1e36b15a31cad061ba301959dad26f509d2b4fa2eb6c4632
+        digest: sha256:71fb2cb6673b1172003ea68496a239136549952af8aa09547e25af199e8bfe84
       bdp-gateway:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-gateway
-        digest: sha256:9641f9649cc87087533cb65aa4ebd70124707bad4ab139d62e748ac722472cb6
+        digest: sha256:4c500e8d2de6f65d77c6cbf95ec460fda97bd2f356a8642064600e8bed933fa3
       bdp-key-manager:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-key-manager
-        digest: sha256:fbee1df723d567164f7cda8e0454cd4cb18b9f510a3a938a63dfef3da988bdfd
+        digest: sha256:bd2038c20633b45c87702557e28b93edddb5a16f49f03a051c58728890cd0a46
       bdp-license-manager:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-license-manager
-        digest: sha256:098449c9db832bce7c6cdf7f1ec4e429aa42b398d69aa0b57041344094a48ddd
+        digest: sha256:a1f8b86549e1a4bf3e0966a305f53db57b287f8e7f46d4b7a817f9fffe525812
       bdp-metering:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-metering
-        digest: sha256:13ffd9251e5e98248a74b9b85dde399d57fabc5afe790919aed5f9dd3dad33ea
+        digest: sha256:3caeef448a73966640b6defc3179e267b956eaf729bf0445c3b63c1e16c53ce9
       bdp-notification-service:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-notification-service
-        digest: sha256:035b816c26e8cd736d68c57cec1ffe00ef5fce59a3a401eea315ff9b7bf456bf
+        digest: sha256:9b4bcf8ee53528a9ae61b1e3443e052ede7b328995cfd6c22c8259835b995326
       bdp-oracle-migration:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-oracle-migration
-        digest: sha256:9072b323206931891dc0f6e5c409b4ed23eb1e806f59d1abedf0daf29ece7d9b
+        digest: sha256:6c557c06965834fa85e606c63a01d220752a253d3cb09a8c7eeb34b1ac0edbbc
       bdp-pipeline-manager:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-pipeline-manager
-        digest: sha256:0629bdba947c27691dacf7cf0077f54f10c3ff6a27f1bd87d478e8803c2fa8f3
+        digest: sha256:4b6a3d88538fcb72d9053ba6312366fb924a596a23f926e5ce42e7e67c4c701c
       bdp-provisioner:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-provisioner
-        digest: sha256:c3a02a2ada2b585c3e5f2a0a690cf8bd93202e751a57648b8d47716fcd42e050
+        digest: sha256:fb316160e76d76580de9e3f8d195c63557ac1dcc0775159f1a98d691c4d565d0
       bdp-security-policies:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-security-policies
-        digest: sha256:ea0116bb7899f24a96cc6c00e005a49db66521f8a6aab3b23e68cd669aa5664d
+        digest: sha256:439ecb65930096fb48cfa3f6aeb836eb4ea4db80f139c139b425c124e1d64720
       bdp-service-manager:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-service-manager
-        digest: sha256:6fb04c8013f990a1998cacba0c1153cfa5f76a5d3b38f992b0c889ec6c672404
+        digest: sha256:96ad401cc14c3c5fdf6e5a600bfc851462d5355b83786043b0679b9db90a1a0f
       bdp-service-registry:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-service-registry
-        digest: sha256:5dea11bd48e254ffc805ef9c08d8ed82573f32152ba31a7a1b31085618255ae0
+        digest: sha256:c960687ba8e1565ea93a07bf26c1ac1310a7ca8c94b904e7ae5dc4a48caf1c1a
       bdp-sql-engine:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-sql-engine
-        digest: sha256:f361dc53bcb602fb4b52b8b3c8cce365333fe4827b6553f53817d7a90181ef66
+        digest: sha256:3d3b2d37c2a4d32d8f41d2ff5db4c92b9b280720564171dc429102e88ab62ba9
       bdp-storage-manager:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-storage-manager
-        digest: sha256:4b842142e63ee4ff31c626855e23efcc99b004f707f04f8d3c7a1f985cebc206
+        digest: sha256:d150cf809480e88ea741fb2ff3735851cd6d05b213ca41d70ca8db58e0420bfd
       bdp-update-agent:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-update-agent
-        digest: sha256:eda4e2c4c25fa8de824d818e8e7672e4800a5f2498fb6ebe8dc69075ef356b56
+        digest: sha256:5ffbc102570c0497576fb4066a5e5ad36ef05dfef38a2457aaadb13f31dfb69b
       bdp-ui:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-ui
-        digest: sha256:e2c1ce43b0cf609b3e1d819f220ec05e67d2f14b47c7bbba8b4fa76d16a98862
+        digest: sha256:2481f5db7d64bf4f9e3b88115560c93a491ae060d66a68e019d900da5d05e2fc
       seed:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-seed
-        digest: sha256:5468e3de543be4e3203f6e22dccfe7cec9c5655511da2d113ee5b6588f68b442
+        digest: sha256:547d5a70cfaae4c930b5afbdd0412a4653a81164d80d8830994337c7969beecd
       emit:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-seed
-        digest: sha256:5468e3de543be4e3203f6e22dccfe7cec9c5655511da2d113ee5b6588f68b442
+        digest: sha256:547d5a70cfaae4c930b5afbdd0412a4653a81164d80d8830994337c7969beecd
       keycloak:
         registry: bdpmarketplace.azurecr.io
         image: bdp/keycloak
