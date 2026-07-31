@@ -37,6 +37,31 @@
     "sharedDataSizeGi": {
       "type": "string",
       "defaultValue": "50"
+    },
+    "tlsMode": {
+      "type": "string",
+      "defaultValue": "existing",
+      "allowedValues": [
+        "acme",
+        "existing"
+      ],
+      "metadata": {
+        "description": "Where the TLS certificate comes from."
+      }
+    },
+    "adminEmail": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Contact address for certificate expiry warnings."
+      }
+    },
+    "tlsSecretName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Secret holding the platform TLS certificate."
+      }
     }
   },
   "variables": {
@@ -67,7 +92,10 @@
           "global.storageClass": "[parameters('storageClass')]",
           "postgresql.primary.persistence.size": "[concat(parameters('postgresSizeGi'), 'Gi')]",
           "redis.master.persistence.size": "[concat(parameters('redisSizeGi'), 'Gi')]",
-          "sharedStorage.size": "[concat(parameters('sharedDataSizeGi'), 'Gi')]"
+          "sharedStorage.size": "[concat(parameters('sharedDataSizeGi'), 'Gi')]",
+          "global.tls.mode": "[parameters('tlsMode')]",
+          "global.adminEmail": "[parameters('adminEmail')]",
+          "global.tlsSecretName": "[parameters('tlsSecretName')]"
         },
         "scope": {
           "cluster": {

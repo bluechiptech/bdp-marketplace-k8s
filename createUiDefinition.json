@@ -47,6 +47,51 @@
           "regex": "^[a-zA-Z0-9.-]{1,63}$",
           "validationMessage": "1-63 chars: letters, numbers, dot, hyphen"
         }
+      },
+      {
+        "name": "tlsMode",
+        "type": "Microsoft.Common.DropDown",
+        "label": "HTTPS certificate",
+        "defaultValue": "Provide my own certificate, or none for now",
+        "toolTip": "How the platform gets its TLS certificate. Keycloak issues every token, so without one, logins and tokens cross the network in clear text. Let's Encrypt needs the domain to already point at this cluster, which on a new cluster it cannot -- install first, point DNS at the ingress address, then upgrade with this set.",
+        "constraints": {
+          "allowedValues": [
+            {
+              "label": "Provide my own certificate, or none for now",
+              "value": "existing"
+            },
+            {
+              "label": "Request from Let's Encrypt (domain must already resolve to this cluster)",
+              "value": "acme"
+            }
+          ],
+          "required": true
+        }
+      },
+      {
+        "name": "adminEmail",
+        "type": "Microsoft.Common.TextBox",
+        "label": "Administrator email",
+        "defaultValue": "",
+        "toolTip": "Where certificate expiry warnings are sent. Required by Let's Encrypt.",
+        "constraints": {
+          "required": "[equals(basics('tlsMode'), 'acme')]",
+          "regex": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+          "validationMessage": "Enter a valid email address"
+        },
+        "visible": "[equals(basics('tlsMode'), 'acme')]"
+      },
+      {
+        "name": "tlsSecretName",
+        "type": "Microsoft.Common.TextBox",
+        "label": "TLS secret name",
+        "defaultValue": "",
+        "toolTip": "Kubernetes secret holding the certificate. With Let's Encrypt it is created for you -- name it anything, e.g. bdp-tls. Otherwise create the secret in the release namespace first. Leave blank to serve plain HTTP.",
+        "constraints": {
+          "required": false,
+          "regex": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "validationMessage": "Lowercase letters, numbers and hyphens"
+        }
       }
     ],
     "steps": [
@@ -65,7 +110,7 @@
             "visible": true,
             "options": {
               "icon": "Info",
-              "text": "Storage class applies to NEW installs only — changing it later does not move or resize existing volumes. Sizes set the initial PersistentVolumeClaim capacity; most CSI drivers support online expansion afterwards, but shrinking a volume is not supported."
+              "text": "Storage class applies to NEW installs only \u2014 changing it later does not move or resize existing volumes. Sizes set the initial PersistentVolumeClaim capacity; most CSI drivers support online expansion afterwards, but shrinking a volume is not supported."
             }
           },
           {
@@ -77,9 +122,18 @@
             "constraints": {
               "required": true,
               "allowedValues": [
-                { "label": "Cluster default (recommended)", "value": "" },
-                { "label": "Azure Disk — Standard SSD (managed-csi)", "value": "managed-csi" },
-                { "label": "Azure Disk — Premium SSD (managed-csi-premium)", "value": "managed-csi-premium" }
+                {
+                  "label": "Cluster default (recommended)",
+                  "value": ""
+                },
+                {
+                  "label": "Azure Disk \u2014 Standard SSD (managed-csi)",
+                  "value": "managed-csi"
+                },
+                {
+                  "label": "Azure Disk \u2014 Premium SSD (managed-csi-premium)",
+                  "value": "managed-csi-premium"
+                }
               ]
             }
           },
@@ -130,7 +184,10 @@
       "storageClass": "[steps('storage').storageClass]",
       "postgresSizeGi": "[steps('storage').postgresSizeGi]",
       "redisSizeGi": "[steps('storage').redisSizeGi]",
-      "sharedDataSizeGi": "[steps('storage').sharedDataSizeGi]"
+      "sharedDataSizeGi": "[steps('storage').sharedDataSizeGi]",
+      "tlsMode": "[basics('tlsMode')]",
+      "adminEmail": "[basics('adminEmail')]",
+      "tlsSecretName": "[basics('tlsSecretName')]"
     }
   }
 }

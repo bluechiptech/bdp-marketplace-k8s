@@ -1,0 +1,62 @@
+{{- if eq .Values.global.tls.mode "acme" }}
+{{- if not .Values.global.adminEmail }}
+{{- fail "global.tls.mode is \"acme\" but global.adminEmail is empty. Let's Encrypt requires a contact address for expiry warnings." }}
+{{- end }}
+{{- if not .Values.global.tlsSecretName }}
+{{- fail "global.tls.mode is \"acme\" but global.tlsSecretName is empty. It names the secret the issued certificate is written to, and the Ingress reads the same value." }}
+{{- end }}
+# Asks the bundled cert-manager for a real certificate.
+#
+# cert-manager ships in this chart and was enabled, but nothing ever requested
+# anything from it: global.tlsSecretName defaulted to empty, so the Ingress
+# rendered without a tls block and the whole platform -- including the identity
+# provider that issues every token -- served plain HTTP.
+#
+# A namespaced Issuer rather than a ClusterIssuer: everything it secures lives
+# in this release's namespace, and a marketplace chart that creates
+# cluster-scoped objects needs cluster-scoped permissions it should not ask for.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ .Release.Name }}-acme
+  labels:
+    app.kubernetes.io/part-of: bdp
+spec:
+  acme:
+    server: {{ .Values.global.tls.acmeServer | quote }}
+    # Where expiry warnings go. Let's Encrypt requires it.
+    email: {{ .Values.global.adminEmail | quote }}
+    privateKeySecretRef:
+      name: {{ .Release.Name }}-acme-account
+    solvers:
+      # HTTP-01 over the same ingress controller that serves the platform, so
+      # no DNS credentials are needed. It does require that
+      # global.externalDomain already resolves to the ingress controller's
+      # public address BEFORE install -- the ACME server fetches a challenge
+      # over the public internet, and a name that does not resolve yet fails
+      # with an error that reads like a cert-manager problem rather than a DNS
+      # one.
+      - http01:
+          ingress:
+            ingressClassName: {{ .Values.global.ingressClassName }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-tls
+  labels:
+    app.kubernetes.io/part-of: bdp
+spec:
+  # The same secret name the Ingress consumes, so issuing the certificate is
+  # what switches TLS on -- there is no second place to remember to update.
+  secretName: {{ .Values.global.tlsSecretName }}
+  issuerRef:
+    name: {{ .Release.Name }}-acme
+    kind: Issuer
+  dnsNames:
+    - {{ .Values.global.externalDomain | quote }}
+    # Keycloak is served on its own subdomain and is the one name that MUST be
+    # trusted: it is the token issuer, so a certificate error here is not a
+    # browser warning on one page but a failed login everywhere.
+    - {{ printf "keycloak.%s" .Values.global.externalDomain | quote }}
+{{- end }}

@@ -278,7 +278,31 @@ global:
   # UI https://<domain>, API https://<domain>/api, Keycloak https://keycloak.<domain>
   externalDomain: bdp.example.com
   ingressClassName: nginx
-  tlsSecretName: ""            # optional pre-provisioned wildcard cert
+  # Name of the secret holding the platform's TLS certificate. The Ingress
+  # reads it, and with tls.mode "acme" cert-manager writes it. Empty means the
+  # whole platform is served over plain HTTP -- including Keycloak, which
+  # issues every token.
+  tlsSecretName: ""
+  tls:
+    # Where the certificate comes from.
+    #
+    #   existing - you provide the secret named above yourself (a wildcard
+    #              certificate, an Azure Key Vault sync, whatever you already
+    #              have). Leave tlsSecretName empty for plain HTTP.
+    #   acme     - ask the bundled cert-manager for one from Let's Encrypt.
+    #              Requires global.adminEmail, global.tlsSecretName, and
+    #              global.externalDomain already resolving to this cluster's
+    #              ingress address, because the challenge is fetched over the
+    #              public internet.
+    #
+    # Defaults to "existing" so an upgrade cannot start making calls to an
+    # external certificate authority on somebody's behalf.
+    mode: existing
+    # Staging (https://acme-staging-v02.api.letsencrypt.org/directory) issues
+    # untrusted certificates but has far higher rate limits -- worth using
+    # while getting DNS right, because the production endpoint locks you out
+    # for a week after five failures on the same name.
+    acmeServer: https://acme-v02.api.letsencrypt.org/directory
   # SECURITY: leave false for any real deployment. When true, the UI pod skips
   # TLS verification on its server-side OIDC calls (NODE_TLS_REJECT_UNAUTHORIZED=0)
   # so it accepts the ingress controller's self-signed default cert. Only for
@@ -395,7 +419,31 @@ keycloak:
     adminUser: admin
     adminPassword: ""           # empty -> chart-generated
   proxy: edge
+  # Production mode. The chart's default is false, which starts Keycloak with
+  # `start-dev`: dev-mode caching (so no clustering or session replication) and
+  # hostname checks disabled. Keycloak's own documentation is explicit that
+  # start-dev must not be used in production, and it shipped that way here.
+  #
+  # Requires the hostname below and TLS terminated upstream -- `proxy: edge`
+  # above already says that is the arrangement.
+  production: true
   httpRelativePath: "/"
+  # Keycloak has to know the URL browsers reach it on. It bakes that into every
+  # token issuer, discovery document and redirect, so getting it wrong produces
+  # a login that appears to work and then fails validation in every service.
+  #
+  # The subchart only sets this when its OWN ingress is enabled, and it is not:
+  # the umbrella's Ingress routes keycloak.<externalDomain> to this service
+  # instead. So it is set explicitly here.
+  #
+  # The scheme follows whether a certificate exists. With global.tlsSecretName
+  # set the ingress serves HTTPS and Keycloak must advertise https; without one
+  # it serves plain HTTP, and advertising https would make every redirect fail.
+  extraEnvVars:
+    - name: KC_HOSTNAME_URL
+      value: "http{{ if .Values.global.tlsSecretName }}s{{ end }}://keycloak.{{ .Values.global.externalDomain }}"
+    - name: KC_HOSTNAME_ADMIN_URL
+      value: "http{{ if .Values.global.tlsSecretName }}s{{ end }}://keycloak.{{ .Values.global.externalDomain }}"
   # The chart's default "small" resources preset OOM-kills (exit 137) the
   # kc.sh build/augmentation phase — give Keycloak real memory.
   resources:
