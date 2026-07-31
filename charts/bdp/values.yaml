@@ -271,7 +271,10 @@ global:
   # Bitnami convention and would re-prefix the postgresql/redis/keycloak
   # subchart images too.
   bdpImageRegistry: bdpmarketplace.azurecr.io/bdp
-  bdpImageTag: "1.0.4"
+  # Unused by the templates -- images resolve through global.azure.images
+  # digests. Kept in step with the release so it cannot mislead anyone reading
+  # it as the version that ships.
+  bdpImageTag: "1.0.6"
   # Namespace installed data tools (and their per-tool UI Ingresses) live in.
   toolsNamespace: bdp-services
   # Domain the customer points at the ingress. Everything derives from it:
