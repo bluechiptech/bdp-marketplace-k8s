@@ -13,6 +13,21 @@ images to two registries, plus an offline bundle:
 All three carry byte-identical images (`crane cp` preserves manifest digests),
 so the sha256 pins in the chart are valid everywhere.
 
+Exact GHCR URLs (same repository paths as the ACR, only the registry prefix
+differs):
+
+| Artifact | URL |
+|---|---|
+| Platform service images (24) | `ghcr.io/bluechiptech/bdp/<service>:<version>` — e.g. `ghcr.io/bluechiptech/bdp/bdp-gateway:1.0.6` |
+| Re-hosted postgres/redis/keycloak | `ghcr.io/bluechiptech/bdp/{postgresql,redis,keycloak}` (pulled by digest) |
+| Mirrored third-party images | `ghcr.io/bluechiptech/tools/<image>:<tag>` — e.g. `ghcr.io/bluechiptech/tools/grafana:13.1.1` |
+| Umbrella Helm chart | `oci://ghcr.io/bluechiptech/charts/bdp` |
+| Tool Helm charts | `oci://ghcr.io/bluechiptech/charts/<name>` — e.g. `.../charts/clickhouse` |
+
+Package visibility is managed at
+https://github.com/orgs/bluechiptech/packages — packages must be public (or a
+pull secret configured, below) before a cluster can pull them.
+
 ## Prerequisites (any non-AKS cluster)
 
 - Kubernetes with a **default StorageClass** (PVCs for postgres/redis/keycloak,
@@ -32,12 +47,25 @@ so the sha256 pins in the chart are valid everywhere.
 
 ## Install from GHCR
 
+From a checkout of this repo:
+
 ```bash
 helm install bdp charts/bdp -n bdp --create-namespace \
   -f charts/bdp/values-ghcr.yaml \
   --set global.externalDomain=bdp.customer.example.com \
   --set sharedStorage.storageClass=<rwx-class> \
   --timeout 20m --wait
+```
+
+Or without a checkout, straight from the published chart (it embeds the same
+GHCR-pointing defaults only when you pass the values file, so pull both):
+
+```bash
+helm pull oci://ghcr.io/bluechiptech/charts/bdp --version <chart-version>
+# fetch values-ghcr.yaml from the repo (or generate it with
+# scripts/gen-registry-values.sh ghcr.io/bluechiptech), then:
+helm install bdp bdp-<chart-version>.tgz -n bdp --create-namespace \
+  -f values-ghcr.yaml --set global.externalDomain=... --timeout 20m --wait
 ```
 
 `values-ghcr.yaml` is generated from the canonical `values.yaml` by
