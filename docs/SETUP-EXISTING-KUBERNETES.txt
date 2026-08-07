@@ -124,18 +124,31 @@ copies and break the registry wiring.
     bdpmarketplace.azurecr.io, which is private. Get the registry
     username + password from the vendor (Bluechip internal:
     portal.azure.com -> container registry "bdpmarketplace" ->
-    Access keys -> enable Admin user) and create the credentials
-    file in your HOME directory — outside the repo, so it can never
-    be committed:
+    Access keys -> enable Admin user).
+
+    The pull secret MUST be created with kubectl BEFORE the install —
+    do NOT use global.registryCredentials.create=true here. The
+    kube-prometheus-stack admission job is a PRE-INSTALL HOOK: it
+    runs before the chart's manifests are applied, so a chart-created
+    secret does not exist yet when the hook pod tries to pull, and
+    the whole install wedges in ImagePullBackOff until the timeout.
+
+    kubectl create namespace bdp --dry-run=client -o yaml | kubectl apply -f -
+    kubectl create secret docker-registry bdp-registry-cred -n bdp \
+      --docker-server=bdpmarketplace.azurecr.io \
+      --docker-username='<registry-username>' \
+      --docker-password='<registry-password>'
+
+    Then create the values file that points the chart (and the loki/
+    alloy subcharts, which use different keys) at that secret. Keep
+    it in your HOME directory — outside the repo, so it can never be
+    committed; it contains no credentials now, but the habit is the
+    protection:
 
     cat > ~/pull-secrets.yaml <<'EOF'
     global:
       registryCredentials:
-        create: true
-        name: bdp-registry-cred
-        registry: bdpmarketplace.azurecr.io
-        username: <registry-username>
-        password: <registry-password>
+        create: false
       imagePullSecrets: [{name: bdp-registry-cred}]
     loki:
       imagePullSecrets: [{name: bdp-registry-cred}]
@@ -167,14 +180,29 @@ copies and break the registry wiring.
       --set billing.mode=byol \
       --set global.tls.mode=acme \
       --set global.tlsSecretName=bdp-tls \
-      --set global.adminEmail=you@yourcompany.com \
-      --timeout 20m --wait
+      --set global.adminEmail=you@yourcompany.com
+
+    Deliberately NO --wait: helm applies everything and returns
+    (after a short pause while the pre-install hooks run), then the
+    cluster pulls several GB of images on its own — often longer
+    than any sane --wait timeout on a first install. Watch progress
+    with:
+
+        kubectl get pods -n bdp -w
+
+    Done when every pod is Running 1/1 (jobs: Completed).
+    ContainerCreating for a long while = still downloading; only
+    ImagePullBackOff or Pending are actual failures (see
+    troubleshooting).
 
     - Cluster with an RWX-capable StorageClass? Replace the
       sharedStorage line with:
           --set sharedStorage.storageClass=<your-RWX-class>
     - A failed attempt can leave the release name in use; clear it
-      with "helm uninstall bdp -n bdp" and re-run.
+      with "helm uninstall bdp -n bdp" and re-run. NOTE: the
+      uninstall may delete the adopted cert-manager CRDs — check
+      with "kubectl get crd | grep cert-manager" and redo step 4b
+      if they are gone.
 
 ALTERNATIVE — GHCR, no Azure credentials (NOT YET AVAILABLE: requires
 the vendor's GHCR publish, scripts/release.sh, to have run; until
@@ -241,6 +269,32 @@ Then provision a tool from the UI catalog (e.g. ClickHouse) — it
 should pull its chart and images from GHCR too.
 
 --------------------------------------------------------------------
+WHAT THIS PROCEDURE INSTALLS ON THE CLUSTER
+--------------------------------------------------------------------
+Inventory of everything the steps above leave behind (useful for
+audits and teardown):
+
+    local-path-provisioner        ns local-path-storage; StorageClass
+                                  "local-path" marked default (step 1)
+    ingress-nginx                 helm release "ingress-nginx", ns
+                                  ingress-nginx; hostPort 80/443 on
+                                  the node in single-node mode (step 2)
+    cert-manager CRDs v1.15.3     cluster-scoped, kubectl-applied and
+                                  Helm-adopted into release bdp (4b)
+    secret bdp-registry-cred      ns bdp; registry pull credentials,
+                                  created manually with kubectl (4a)
+    helm release "bdp"            ns bdp: postgres, redis, keycloak,
+                                  cert-manager, the 22 platform
+                                  services + UI + seed job, prometheus
+                                  stack, loki, alloy, kserve CRDs
+    Let's Encrypt account + cert  Issuer bdp-acme / Certificate
+                                  bdp-tls in ns bdp (acme mode only)
+
+Teardown: helm uninstall bdp -n bdp (CRDs adopted in 4b go with it);
+the ingress controller, storage provisioner and pull secret are
+yours to keep or delete separately.
+
+--------------------------------------------------------------------
 TROUBLESHOOTING
 --------------------------------------------------------------------
 - "no matches for kind Certificate / Issuer ... ensure CRDs are
@@ -250,10 +304,19 @@ TROUBLESHOOTING
   be imported into the current release: invalid ownership metadata
     the CRDs exist but were never adopted by Helm — run the
     label/annotate loop in step 4b, then re-run the install.
-- ImagePullBackOff
-    the pull secret is missing/wrong (step 4a) — check
-    ~/pull-secrets.yaml credentials — or the registry is
-    unreachable from the nodes.
+- Install stalls ~20m then STATUS: failed; only ONE pod exists
+  (…admission-create…) in ImagePullBackOff; events show
+  "FailedToRetrieveImagePullSecret … (bdp-registry-cred)"
+    the pull secret didn't exist when the pre-install hook ran —
+    it must be created with kubectl BEFORE the install (step 4a),
+    not by the chart. helm uninstall, create the secret, re-run.
+- ImagePullBackOff with "401 Unauthorized" AFTER the secret exists
+    the registry credentials themselves are wrong — re-check the
+    username/password (Admin user enabled? password copied whole?)
+    and recreate the secret.
+- ImagePullBackOff (other)
+    registry unreachable from the nodes — check egress rules
+    (ports section below).
 - Login redirect fails / UI cannot reach Keycloak
     your load balancer doesn't hairpin — common in hostPort mode,
     where pods often cannot reach the node's own PUBLIC IP from
