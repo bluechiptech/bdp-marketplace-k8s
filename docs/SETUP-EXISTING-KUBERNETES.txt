@@ -1,0 +1,279 @@
+====================================================================
+BDP PLATFORM — SETUP ON AN EXISTING KUBERNETES CLUSTER
+====================================================================
+Works for on-prem (kubeadm / RKE2 / k3s), EKS, GKE, or any conformant
+cluster. Images are pulled from the vendor registry — TODAY that is
+bdpmarketplace.azurecr.io (private; credentials in step 4a); once the
+GHCR publish (scripts/release.sh) has run it can be
+ghcr.io/bluechiptech instead. The cluster needs outbound internet.
+For a fully offline cluster use the air-gap bundle's import-bundle.sh
+instead — every step below stays the same except the values file
+(values-airgap.yaml).
+
+WHAT YOU NEED BEFORE STARTING
+- kubectl + helm (>= 3.14) pointed at the cluster, cluster-admin
+- a DNS name you control
+- your signed license.key file (issued by Bluechip)
+- pull credentials for the vendor registry (step 4a)
+
+--------------------------------------------------------------------
+STEP 1 — CHECK STORAGE
+--------------------------------------------------------------------
+    kubectl get storageclass
+
+- There must be a DEFAULT StorageClass (marked "(default)") —
+  postgres, redis, keycloak, prometheus and loki create PVCs from it.
+- Note whether any class supports ReadWriteMany (NFS, CephFS,
+  Longhorn, EFS on AWS, Filestore on GKE). Used in step 4; if you
+  have none, you will disable shared tool storage instead.
+- NO StorageClass at all (fresh kubeadm cluster)? Install the
+  local-path provisioner and mark it default:
+
+    kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.31/deploy/local-path-storage.yaml
+    kubectl patch storageclass local-path \
+      -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+    kubectl get storageclass    # must now show: local-path (default)
+
+  local-path is RWO-only (no RWX), so in step 4 use
+  --set sharedStorage.enabled=false.
+
+--------------------------------------------------------------------
+STEP 2 — INGRESS CONTROLLER
+--------------------------------------------------------------------
+If the cluster doesn't already run ingress-nginx:
+
+    # Bare metal only, FIRST: install MetalLB with an address pool so
+    # a LoadBalancer IP can be handed out.
+    helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+    helm install ingress-nginx ingress-nginx/ingress-nginx \
+      -n ingress-nginx --create-namespace
+    kubectl get svc -n ingress-nginx ingress-nginx-controller
+    # wait for EXTERNAL-IP
+
+Single node (or no load balancer at all)? Skip MetalLB and bind the
+controller directly to the node's ports 80/443 instead:
+
+    helm install ingress-nginx ingress-nginx/ingress-nginx \
+      -n ingress-nginx --create-namespace \
+      --set controller.hostPort.enabled=true \
+      --set controller.service.type=ClusterIP
+
+    kubectl get pods -n ingress-nginx   # controller 1/1 Running
+    curl -s -o /dev/null -w '%{http_code}\n' http://<node-public-ip>/
+    # 404 = nginx is answering on the hostPort. In this mode there is
+    # no EXTERNAL-IP — the node's public IP is your entry point (use
+    # it in step 3). Check it from outside the node too, so you know
+    # the provider firewall lets 80/443 in.
+
+Do NOT add any Azure health-probe annotations — those are AKS-only.
+
+--------------------------------------------------------------------
+STEP 3 — DNS
+--------------------------------------------------------------------
+Point a wildcard at the EXTERNAL-IP (hostPort mode: the node's
+public IP):
+
+    *.bdp.yourcompany.com  ->  <IP>
+
+No wildcard support? Two A records are enough:
+
+    bdp.yourcompany.com           ->  <IP>
+    keycloak.bdp.yourcompany.com  ->  <IP>
+
+(Keycloak is served at keycloak.<domain> — without that second
+record, login will fail.) Verify before installing:
+
+    dig +short bdp.yourcompany.com
+    dig +short keycloak.bdp.yourcompany.com
+    # both must print the IP
+
+For a quick test without DNS, use <ip>.sslip.io as the domain.
+
+--------------------------------------------------------------------
+STEP 4 — INSTALL
+--------------------------------------------------------------------
+    git clone https://github.com/bluechiptech/bdp-marketplace-k8s.git
+    cd bdp-marketplace-k8s
+
+The clone contains the COMPLETE chart, including the patched vendored
+subcharts in charts/bdp/charts/. NEVER run "helm dependency build" —
+it would replace those patched subcharts with unpatched upstream
+copies and break the registry wiring.
+
+4a. REGISTRY CREDENTIALS. The default values.yaml pulls every image,
+    digest-pinned, from the vendor registry
+    bdpmarketplace.azurecr.io, which is private. Get the registry
+    username + password from the vendor (Bluechip internal:
+    portal.azure.com -> container registry "bdpmarketplace" ->
+    Access keys -> enable Admin user) and create the credentials
+    file in your HOME directory — outside the repo, so it can never
+    be committed:
+
+    cat > ~/pull-secrets.yaml <<'EOF'
+    global:
+      registryCredentials:
+        create: true
+        name: bdp-registry-cred
+        registry: bdpmarketplace.azurecr.io
+        username: <registry-username>
+        password: <registry-password>
+      imagePullSecrets: [{name: bdp-registry-cred}]
+    loki:
+      imagePullSecrets: [{name: bdp-registry-cred}]
+    alloy:
+      global:
+        image:
+          pullSecrets: [{name: bdp-registry-cred}]
+    EOF
+
+4b. CERT-MANAGER CRDS (required when TLS mode is acme, step 5). The
+    chart renders Certificate/Issuer resources, so the CRDs must
+    exist BEFORE the install — and Helm must then be told it owns
+    them, or it refuses with "invalid ownership metadata":
+
+    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.15.3/cert-manager.crds.yaml
+    for crd in $(kubectl get crd -o name | grep cert-manager.io); do
+      kubectl label   $crd app.kubernetes.io/managed-by=Helm --overwrite
+      kubectl annotate $crd meta.helm.sh/release-name=bdp \
+        meta.helm.sh/release-namespace=bdp --overwrite
+    done
+
+4c. INSTALL — the verified single-node invocation (hostPort ingress
+    from step 2, local-path storage from step 1, Let's Encrypt TLS):
+
+    helm install bdp charts/bdp -n bdp --create-namespace \
+      -f ~/pull-secrets.yaml \
+      --set global.externalDomain=bdp.yourcompany.com \
+      --set sharedStorage.enabled=false \
+      --set billing.mode=byol \
+      --set global.tls.mode=acme \
+      --set global.tlsSecretName=bdp-tls \
+      --set global.adminEmail=you@yourcompany.com \
+      --timeout 20m --wait
+
+    - Cluster with an RWX-capable StorageClass? Replace the
+      sharedStorage line with:
+          --set sharedStorage.storageClass=<your-RWX-class>
+    - A failed attempt can leave the release name in use; clear it
+      with "helm uninstall bdp -n bdp" and re-run.
+
+ALTERNATIVE — GHCR, no Azure credentials (NOT YET AVAILABLE: requires
+the vendor's GHCR publish, scripts/release.sh, to have run; until
+then the package does not exist and helm returns 404 "name unknown"):
+
+    helm install bdp oci://ghcr.io/bluechiptech/charts/bdp \
+      -n bdp --create-namespace \
+      -f charts/bdp/values-ghcr.yaml \
+      <same --set flags as 4c>
+    # private GHCR packages: helm registry login ghcr.io first, and
+    # use registry ghcr.io + a read:packages token in pull-secrets.yaml
+
+The install takes 10–20 minutes: postgres/redis/keycloak, the 22
+platform services, the UI, the observability stack, and a seed job
+that bootstraps the Keycloak realm.
+
+--------------------------------------------------------------------
+STEP 5 — TLS
+--------------------------------------------------------------------
+Default is plain HTTP until you give it a certificate. Pick one:
+
+- Own certificate:
+      kubectl create secret tls bdp-tls -n bdp --cert=... --key=...
+  and add:  --set global.tlsSecretName=bdp-tls
+
+- Let's Encrypt (domain must be publicly resolvable):
+      --set global.tls.mode=acme \
+      --set global.tlsSecretName=bdp-tls \
+      --set global.adminEmail=you@yourcompany.com
+
+- Throwaway test only:
+      --set global.insecureSkipTlsVerify=true
+
+--------------------------------------------------------------------
+STEP 6 — LOG IN
+--------------------------------------------------------------------
+    kubectl get secret bdp-credentials -n bdp -o jsonpath='{.data}'
+    # base64-encoded admin credentials
+
+Browse to https://bdp.yourcompany.com and sign in.
+
+--------------------------------------------------------------------
+STEP 7 — ACTIVATE THE LICENSE
+--------------------------------------------------------------------
+Dashboard -> License -> Activate License: upload (or paste) your
+license.key file, click Activate. The card shows organization, tier,
+expiry date and a green ACTIVE badge. Until this is done,
+billing.mode=byol intentionally blocks provisioning of data tools.
+
+Renewal / tier upgrade: same flow with the new license.key file.
+
+--------------------------------------------------------------------
+STEP 8 — VERIFY
+--------------------------------------------------------------------
+    kubectl get pods -n bdp        # everything Running/Completed
+
+    # every image should come from ghcr.io:
+    kubectl get pods -n bdp -o jsonpath='{range .items[*]}{range .spec.containers[*]}{.image}{"\n"}{end}{end}' \
+      | cut -d/ -f1 | sort | uniq -c
+
+Then provision a tool from the UI catalog (e.g. ClickHouse) — it
+should pull its chart and images from GHCR too.
+
+--------------------------------------------------------------------
+TROUBLESHOOTING
+--------------------------------------------------------------------
+- "no matches for kind Certificate / Issuer ... ensure CRDs are
+  installed first" at install time
+    step 4b was skipped — apply the cert-manager CRDs first.
+- CustomResourceDefinition "... cert-manager.io" exists and cannot
+  be imported into the current release: invalid ownership metadata
+    the CRDs exist but were never adopted by Helm — run the
+    label/annotate loop in step 4b, then re-run the install.
+- ImagePullBackOff
+    the pull secret is missing/wrong (step 4a) — check
+    ~/pull-secrets.yaml credentials — or the registry is
+    unreachable from the nodes.
+- Login redirect fails / UI cannot reach Keycloak
+    your load balancer doesn't hairpin. Set:
+      --set global.keycloakHostAliasIp=<ClusterIP of the
+        ingress-nginx-controller Service>
+    and helm upgrade.
+- PVCs Pending
+    no default StorageClass, or a storage class was set to "" (never
+    do that — an empty string disables dynamic provisioning).
+- Shared-storage PVC Pending
+    the class you supplied is not actually RWX-capable.
+
+--------------------------------------------------------------------
+PORTS THAT MUST BE OPENED
+--------------------------------------------------------------------
+Inbound from users (perimeter firewall -> load balancer) — the ONLY
+externally opened ports; everything is routed through the ingress:
+    443/TCP   UI, API (/api), Grafana (/grafana), Keycloak
+              (keycloak.<domain>)
+    80/TCP    HTTP->HTTPS redirect; REQUIRED for Let's Encrypt
+              HTTP-01 if global.tls.mode=acme
+
+Outbound from cluster nodes (egress):
+    bdpmarketplace.azurecr.io (+ *.blob.core.windows.net) : 443
+              (image pulls — default/ACR installs)
+    ghcr.io + pkg-containers.githubusercontent.com : 443
+              (image/chart pulls — GHCR installs, once published)
+    acme-v02.api.letsencrypt.org : 443   (only if TLS mode is acme)
+    <local registry port>                (air-gapped installs; no
+                                          other egress needed)
+    BYOL licensing phones home to NOTHING — fully offline.
+
+Node-to-node (only if you firewall between cluster nodes):
+    9100/TCP  node-exporter (runs hostNetwork: true; Prometheus
+              scrapes it on the node IP)
+    plus your cluster's normal Kubernetes/CNI ports (already open on
+    a working cluster: API 6443, kubelet 10250, CNI overlay ports).
+
+Pod-network internal only — no firewall rules needed; listed for
+NetworkPolicy authors: platform services 7000-7023, UI 3000,
+PostgreSQL 5432, Redis 6379, Keycloak 80, Loki 3100, Prometheus 9090,
+Alertmanager 9093.
+
+More detail: docs/INSTALL-GENERIC.md in this repository.
+====================================================================
