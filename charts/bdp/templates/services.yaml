@@ -20,6 +20,10 @@ spec:
         app.kubernetes.io/name: {{ $name }}
         app.kubernetes.io/part-of: bdp
     spec:
+      {{- with $root.Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- if $svc.serviceAccount }}
       serviceAccountName: {{ $svc.serviceAccount }}
       {{- end }}
@@ -80,6 +84,16 @@ spec:
               value: "http://bdp-observability-loki:3100"
             {{- end }}
             {{- end }}
+            {{- /* BYOL: point license-manager at the mounted vendor-signed
+            license file and turn on signed enforcement (licenses can then
+            only enter via a signature-verified file — the create API is
+            disabled and unsigned rows never validate). */}}
+            {{- if and (eq $name "bdp-license-manager") (eq $root.Values.billing.mode "byol") $root.Values.billing.licenseSecretName }}
+            - name: BDP_LICENSE_FILE
+              value: /etc/bdp/license/license.key
+            - name: BDP_LICENSE_ENFORCE_SIGNED
+              value: "true"
+            {{- end }}
             {{- range $k, $v := ($svc.extraEnv | default dict) }}
             - name: {{ $k }}
               value: {{ $v | quote }}
@@ -91,6 +105,19 @@ spec:
             initialDelaySeconds: 40
             periodSeconds: 10
             failureThreshold: 12
+          {{- if and (eq $name "bdp-license-manager") (eq $root.Values.billing.mode "byol") $root.Values.billing.licenseSecretName }}
+          volumeMounts:
+            - name: license
+              mountPath: /etc/bdp/license
+              readOnly: true
+      {{- /* optional: the pod starts before the customer creates the secret;
+      the license imports on the next restart after it exists */}}
+      volumes:
+        - name: license
+          secret:
+            secretName: {{ $root.Values.billing.licenseSecretName }}
+            optional: true
+          {{- end }}
 ---
 apiVersion: v1
 kind: Service

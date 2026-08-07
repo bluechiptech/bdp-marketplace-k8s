@@ -16,6 +16,10 @@ spec:
         app.kubernetes.io/name: bdp-ui
         app.kubernetes.io/part-of: bdp
     spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001

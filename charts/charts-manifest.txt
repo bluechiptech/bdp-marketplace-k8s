@@ -1,0 +1,18 @@
+# Tool charts published to the platform registry as OCI artifacts under
+# charts/*. Input to the chart-mirror step of scripts/release.sh (crane cp,
+# digest-preserving) and to scripts/make-airgap-bundle.sh (helm pull).
+#
+# Format: <name>:<version>   (resolves to oci://<registry>/charts/<name>)
+#
+# The authoritative list lives in the ACR — refresh this file with:
+#   scripts/release.sh --refresh-manifests
+# Seeded from the versions verified by scripts/deploy-aks-test.sh and the
+# bdp-service-registry descriptors; entries the refresh finds in the ACR but
+# not here (or vice versa) are reported so the file converges on reality.
+bentoml:1.1.13
+feast:0.65.0
+iceberg:0.4.4
+observability:1.0.5
+clickhouse:9.4.4
+nifi:1.2.0-bdp.2
+api-gateway:1.0.0

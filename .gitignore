@@ -5,6 +5,9 @@ charts/bdp/charts/
 # Build logs from build-all.sh / collect-artifacts.sh
 *.log
 
+# release.sh output: recorded digests + air-gap bundles (large binaries)
+releases/
+
 # `helm dependency update` output for the umbrella chart. Its charts/ dir is
 # already ignored above, so the lockfile pinning it is an artifact too.
 charts/bdp/Chart.lock

@@ -40,6 +40,16 @@ helm install bdp charts/bdp \
 The post-install seed Job creates the Keycloak realm, all OIDC clients, RBAC
 resources, and randomized admin credentials (written to secret `bdp-credentials`).
 
+## Registries & portability
+
+Every release ships to the marketplace ACR **and** GHCR
+(`ghcr.io/bluechiptech`), plus an offline bundle for air-gapped sites — same
+digest-pinned images everywhere (`scripts/release.sh`, see `docs/RELEASE.md`).
+To install on on-prem / non-Azure clusters use
+`-f charts/bdp/values-ghcr.yaml` (or generate one for any mirror with
+`scripts/gen-registry-values.sh`) and see `docs/INSTALL-GENERIC.md` for pull
+secrets, storage-class and ingress notes.
+
 ## Billing
 
 `billing.mode` value selects per-plan behaviour: `byol` (license key secret →

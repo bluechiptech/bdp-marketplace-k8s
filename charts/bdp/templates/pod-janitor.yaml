@@ -44,6 +44,10 @@ spec:
       backoffLimit: 1
       template:
         spec:
+          {{- with .Values.global.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           serviceAccountName: bdp-pod-janitor
           restartPolicy: Never
           containers:

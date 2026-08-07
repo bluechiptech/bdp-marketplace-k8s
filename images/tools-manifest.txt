@@ -1,0 +1,40 @@
+# Third-party images mirrored into the platform registry under tools/*.
+# This file is the in-repo record of what `az acr import` populated server-side
+# (there was previously no reproducible recipe for it) and the input to
+# scripts/mirror-tools.sh, which copies these between registries with crane
+# (digest-preserving).
+#
+# Format: <repo>:<tag>|<repo>@sha256:<digest>   <upstream-ref>
+#   column 1: path in the platform registry (ACR / GHCR / local mirror)
+#   column 2: public upstream the image originally came from — used only by
+#             `mirror-tools.sh --from-upstream`; best-effort reconstruction,
+#             verify against the ACR digest before relying on it.
+#
+# Refresh from the ACR (repos + tags) with: scripts/release.sh --refresh-manifests
+# Tags/digests below mirror the pins in charts/bdp/values.yaml.
+tools/cert-manager-controller:v1.15.3        quay.io/jetstack/cert-manager-controller:v1.15.3
+tools/cert-manager-webhook:v1.15.3           quay.io/jetstack/cert-manager-webhook:v1.15.3
+tools/cert-manager-cainjector:v1.15.3        quay.io/jetstack/cert-manager-cainjector:v1.15.3
+tools/cert-manager-startupapicheck:v1.15.3   quay.io/jetstack/cert-manager-startupapicheck:v1.15.3
+tools/cert-manager-acmesolver:v1.15.3        quay.io/jetstack/cert-manager-acmesolver:v1.15.3
+tools/alpine/k8s:1.30.2                      docker.io/alpine/k8s:1.30.2
+tools/busybox:latest                         docker.io/library/busybox:latest
+tools/kubectl:v1.31.0                        docker.io/bitnami/kubectl:1.31.0
+tools/grafana:13.1.1                         docker.io/grafana/grafana:13.1.1
+tools/k8s-sidecar:2.8.1                      docker.io/kiwigrid/k8s-sidecar:2.8.1
+tools/k8s-sidecar:2.5.0                      docker.io/kiwigrid/k8s-sidecar:2.5.0
+tools/prometheus-operator:v0.92.1            quay.io/prometheus-operator/prometheus-operator:v0.92.1
+tools/prometheus-config-reloader:v0.92.1     quay.io/prometheus-operator/prometheus-config-reloader:v0.92.1
+tools/kube-webhook-certgen:1.8.5             registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.8.5
+tools/thanos@sha256:6249f7aaadd3695df637fb2eb4cb9a9955611eee691c3970892fe9c0dc3f2db6   quay.io/thanos/thanos
+tools/alertmanager:v0.33.1                   quay.io/prometheus/alertmanager:v0.33.1
+tools/prometheus:v3.13.1-distroless          quay.io/prometheus/prometheus:v3.13.1
+tools/kube-state-metrics:v2.19.1             registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.19.1
+tools/node-exporter:v1.12.1                  quay.io/prometheus/node-exporter:v1.12.1
+tools/loki:3.6.8                             docker.io/grafana/loki:3.6.8
+tools/loki-helm-test:latest                  docker.io/grafana/loki-helm-test:latest
+tools/loki-canary:3.6.8                      docker.io/grafana/loki-canary:3.6.8
+tools/nginx-unprivileged:1.29-alpine         docker.io/nginxinc/nginx-unprivileged:1.29-alpine
+tools/memcached:1.6.39-alpine                docker.io/library/memcached:1.6.39-alpine
+tools/memcached-exporter:v0.15.4             quay.io/prometheus/memcached-exporter:v0.15.4
+tools/alloy:v1.18.0                          docker.io/grafana/alloy:v1.18.0
