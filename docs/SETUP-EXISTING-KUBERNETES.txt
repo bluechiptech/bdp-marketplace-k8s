@@ -17,6 +17,22 @@ WHAT YOU NEED BEFORE STARTING
 - pull credentials for the vendor registry (step 4a)
 
 --------------------------------------------------------------------
+STEP 0 — SINGLE-NODE CLUSTERS ONLY
+--------------------------------------------------------------------
+kubeadm taints the control plane so ordinary workloads won't schedule
+on it. On a single-node cluster nothing would ever start. Check and
+remove it:
+
+    kubectl describe node | grep -i taint
+    # if it shows node-role.kubernetes.io/control-plane:NoSchedule:
+    kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+
+Also size-check the node: the platform (postgres, redis, keycloak,
+22 services at 512Mi requests each, UI, prometheus, loki) fits on
+8 CPU / 16 GB but it is snug — pods stuck Pending with "Insufficient
+memory/cpu" mean the node is too small or requests need trimming.
+
+--------------------------------------------------------------------
 STEP 1 — CHECK STORAGE
 --------------------------------------------------------------------
     kubectl get storageclass
@@ -94,6 +110,9 @@ STEP 4 — INSTALL
 --------------------------------------------------------------------
     git clone https://github.com/bluechiptech/bdp-marketplace-k8s.git
     cd bdp-marketplace-k8s
+    # already cloned earlier? run "git pull" — the vendored subcharts
+    # were added to the repo on 2026-08-07; older clones lack them and
+    # helm fails with "found in Chart.yaml, but missing in charts/".
 
 The clone contains the COMPLETE chart, including the patched vendored
 subcharts in charts/bdp/charts/. NEVER run "helm dependency build" —
@@ -192,8 +211,10 @@ Default is plain HTTP until you give it a certificate. Pick one:
 --------------------------------------------------------------------
 STEP 6 — LOG IN
 --------------------------------------------------------------------
-    kubectl get secret bdp-credentials -n bdp -o jsonpath='{.data}'
-    # base64-encoded admin credentials
+    kubectl get secret bdp-credentials -n bdp \
+      -o jsonpath='{.data.username}' | base64 -d; echo
+    kubectl get secret bdp-credentials -n bdp \
+      -o jsonpath='{.data.password}' | base64 -d; echo
 
 Browse to https://bdp.yourcompany.com and sign in.
 
@@ -234,7 +255,9 @@ TROUBLESHOOTING
     ~/pull-secrets.yaml credentials — or the registry is
     unreachable from the nodes.
 - Login redirect fails / UI cannot reach Keycloak
-    your load balancer doesn't hairpin. Set:
+    your load balancer doesn't hairpin — common in hostPort mode,
+    where pods often cannot reach the node's own PUBLIC IP from
+    inside (NAT doesn't loop back). Set:
       --set global.keycloakHostAliasIp=<ClusterIP of the
         ingress-nginx-controller Service>
     and helm upgrade.
