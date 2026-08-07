@@ -67,9 +67,14 @@ scripts/license/sign-license.sh --org "Acme Corp" --tier ENTERPRISE \
   --email ops@acme.com --out acme-license.key
 ```
 
-Licenses expire **annually by default** (`--days 365`); pass `--days` only for
-non-standard terms. Renewal = sign a fresh file, customer replaces the
-`bdp-license` secret and restarts the bdp-license-manager pod.
+Licenses expire **annually by default** (`--days 365`); use
+`--expires YYYY-MM-DD` for an explicit end date (end of that day UTC) or
+`--days` for other terms. Every issued license is appended to
+`issued-licenses.txt` next to the private key — the vendor ledger of who
+holds what until when. Renewal = sign a fresh file, customer replaces the
+`bdp-license` secret and restarts the bdp-license-manager pod. The
+platform UI's License page shows the effective license with a
+server-computed ACTIVE / EXPIRED / DEACTIVATED status.
 
 Send the customer the file; they install it as the `bdp-license` secret (see
 docs/INSTALL-GENERIC.md). The matching PUBLIC key is committed at
