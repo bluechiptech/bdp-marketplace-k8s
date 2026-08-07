@@ -1,6 +1,11 @@
 dist/
-charts/bdp/charts/
 *.tgz
+# charts/bdp/charts/ (the vendored, PATCHED subcharts) is deliberately
+# COMMITTED: the patches make the subcharts read the global registry values,
+# and `helm dependency build` would replace them with unpatched upstream
+# copies. Committing them keeps every clone installable without the build
+# host. The *.tgz ignore above must not catch them, hence the negation:
+!charts/bdp/charts/**
 
 # Build logs from build-all.sh / collect-artifacts.sh
 *.log
