@@ -184,6 +184,43 @@ subjects:
     name: bdp-provisioner
     namespace: {{ .Release.Namespace }}
 ---
+{{- /* cluster-manager serves the Nodes page for the LOCAL (in-cluster)
+       deployment target through its ambient client: list/describe plus
+       cordon/uncordon (node patch) and drain (pod eviction). Node ops
+       only — no secrets, NOT cluster-admin. */}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bdp-cluster-manager
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: bdp-cluster-manager
+rules:
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get, list, watch, patch, update]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch, delete]
+  - apiGroups: [""]
+    resources: [pods/eviction]
+    verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: bdp-cluster-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: bdp-cluster-manager
+subjects:
+  - kind: ServiceAccount
+    name: bdp-cluster-manager
+    namespace: {{ .Release.Namespace }}
+---
 {{- /* service-manager reads pod/secret/service state (install progress,
        health, helm-release discovery) and scales tool workloads on
        start/stop. Scoped read + workload-scale — NOT cluster-admin. */}}

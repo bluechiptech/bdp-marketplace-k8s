@@ -519,7 +519,17 @@ services:
   bdp-service-registry:    { port: 7013, db: bdp_registry }
   bdp-auth-service:        { port: 7001, db: bdp_auth }
   bdp-cluster-registry:    { port: 7018, db: bdp_cluster_registry }
-  bdp-cluster-manager:     { port: 7002, db: bdp_cluster }
+  bdp-cluster-manager:
+    port: 7002
+    db: bdp_cluster
+    # Lists/cordons/drains nodes of the LOCAL deployment target through its
+    # own SA (RBAC in services.yaml — the default SA has none and node reads
+    # 403). Kubeconfigs for other targets come from the cluster-registry;
+    # application.yml defaults that URL to 127.0.0.1:7018 (the VM layout),
+    # which in-cluster fails with ResourceAccessException -> CM-0040.
+    serviceAccount: bdp-cluster-manager
+    extraEnv:
+      BDP_CLUSTER_REGISTRY_URL: http://bdp-cluster-registry:7018
   bdp-config-manager:      { port: 7004, db: bdp_config }
   bdp-service-manager:
     port: 7003
