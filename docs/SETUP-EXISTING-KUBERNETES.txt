@@ -62,7 +62,24 @@ STEP 1 — CHECK STORAGE
 --------------------------------------------------------------------
 STEP 2 — INGRESS CONTROLLER
 --------------------------------------------------------------------
-If the cluster doesn't already run ingress-nginx:
+First check whether one is already running:
+
+    kubectl get ingressclass
+    # any class listed = a controller is installed. The chart
+    # expects class "nginx"; a different name (cloud-provider
+    # controllers, RKE2's built-in, ...) also works — pass
+    # --set global.ingressClassName=<name> in step 4c.
+
+    kubectl get pods -A | grep -i ingress
+    # the controller pod must be 1/1 Running
+
+    kubectl get svc -A | grep -iE 'ingress.*LoadBalancer|LoadBalancer.*ingress'
+    # note the EXTERNAL-IP — that is the <IP> for step 3. No
+    # LoadBalancer service? The controller is in hostPort/NodePort
+    # mode — use the node's public IP instead.
+
+If all three check out, skip to step 3. Otherwise install
+ingress-nginx:
 
     # Bare metal only, FIRST: install MetalLB with an address pool so
     # a LoadBalancer IP can be handed out.
