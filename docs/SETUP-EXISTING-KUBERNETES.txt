@@ -81,9 +81,24 @@ First check whether one is already running:
     # outside:
     curl -s -o /dev/null -w '%{http_code}\n' http://localhost/
     # on the node: 404 = nginx answers on the hostPort, use the
-    # node's public IP as <IP>. Connection refused = no hostPort;
-    # re-install the controller with the hostPort flags below
-    # (helm upgrade works too).
+    # node's public IP as <IP>.
+
+Got 000 / connection refused instead? The controller exists but is
+bound to nothing reachable (plain ClusterIP install, no hostPort) —
+rebind it in place:
+
+    helm list -n ingress-nginx      # confirm it is a helm release
+    helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+    helm upgrade ingress-nginx ingress-nginx/ingress-nginx \
+      -n ingress-nginx \
+      --set controller.hostPort.enabled=true \
+      --set controller.service.type=ClusterIP
+    kubectl get pods -n ingress-nginx    # new controller pod 1/1
+    # then re-run the curl until it returns 404, and ALSO run it
+    # against the node's public IP from outside the node, so you
+    # know the provider firewall lets 80/443 in.
+    # (helm list empty = manifest install; delete the ingress-nginx
+    # namespace and install fresh with the command below instead.)
 
 If the checks pass, skip to step 3. Otherwise install
 ingress-nginx:
