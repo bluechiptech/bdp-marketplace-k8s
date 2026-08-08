@@ -188,20 +188,25 @@ copies and break the registry wiring.
     alloy subcharts, which use different keys) at that secret. Keep
     it in your HOME directory — outside the repo, so it can never be
     committed; it contains no credentials now, but the habit is the
-    protection:
+    protection. Copy the block below EXACTLY as printed — it is
+    flush-left on purpose: a heredoc only ends when EOF starts the
+    line, so pasting it with extra leading spaces leaves the shell
+    waiting forever:
 
-    cat > ~/pull-secrets.yaml <<'EOF'
-    global:
-      registryCredentials:
-        create: false
-      imagePullSecrets: [{name: bdp-registry-cred}]
-    loki:
-      imagePullSecrets: [{name: bdp-registry-cred}]
-    alloy:
-      global:
-        image:
-          pullSecrets: [{name: bdp-registry-cred}]
-    EOF
+cat > ~/pull-secrets.yaml <<'EOF'
+global:
+  registryCredentials:
+    create: false
+  imagePullSecrets: [{name: bdp-registry-cred}]
+loki:
+  imagePullSecrets: [{name: bdp-registry-cred}]
+alloy:
+  global:
+    image:
+      pullSecrets: [{name: bdp-registry-cred}]
+EOF
+
+    cat ~/pull-secrets.yaml    # sanity check: matches the block above
 
 4b. CERT-MANAGER CRDS (required when TLS mode is acme, step 5). The
     chart renders Certificate/Issuer resources, so the CRDs must
