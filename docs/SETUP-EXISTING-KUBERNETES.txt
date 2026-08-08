@@ -328,6 +328,43 @@ Changed your mind after installing? Re-run the full 4c command with
 you want. (Mind the password-rotation note in step 6.)
 
 --------------------------------------------------------------------
+STEP 5b — POD DNS CHECK (DO THIS BEFORE FIRST LOGIN)
+--------------------------------------------------------------------
+On some provider networks (observed on EVERY MTN cloud node so far)
+the install completes and TLS issues, yet login bounces forever with
+/login?...&error=OAuthSignin. Check for it now instead of finding
+out in the browser:
+
+    kubectl exec -n bdp deploy/bdp-ui -- getent hosts keycloak.<your-domain>
+    # prints an IP  -> fine, go to step 6.
+    # prints NOTHING -> pods cannot resolve ANY external name; read on.
+
+Cause: pods inherit the node's DHCP search domain, and some ISP/cloud
+resolvers answer <anything>.<that-domain> with NOERROR (empty)
+instead of NXDOMAIN. musl-based images (Alpine/Node — the UI) treat
+that as a final answer and never try the bare public name. Find the
+offending domain:
+
+    kubectl exec -n bdp deploy/bdp-ui -- cat /etc/resolv.conf
+    # the "search" line — note the entry that is NOT *.cluster.local
+    # (MTN cloud: cloud-1.ict.mtn.com.ng)
+
+Fix: make CoreDNS answer that zone authoritatively with NXDOMAIN so
+lookups fall through to the real name. Copy flush-left, replace
+cloud-1.ict.mtn.com.ng with YOUR search domain if it differs:
+
+kubectl -n kube-system get configmap coredns -o yaml > /tmp/coredns.yaml
+sed -i 's|^    \.:53 {|    cloud-1.ict.mtn.com.ng:53 {\n        errors\n        template ANY ANY {\n            rcode NXDOMAIN\n        }\n    }\n    .:53 {|' /tmp/coredns.yaml
+kubectl apply -f /tmp/coredns.yaml
+kubectl -n kube-system rollout restart deploy/coredns
+
+    # ~30s later the getent test above must print the IP.
+
+This edit lives in the coredns ConfigMap (kube-system), outside the
+bdp release — kubeadm upgrades can revert it; re-apply if external
+DNS in pods ever breaks again after a cluster upgrade.
+
+--------------------------------------------------------------------
 STEP 6 — LOG IN
 --------------------------------------------------------------------
 There is no default password. The post-install seed job generates
@@ -502,21 +539,9 @@ TROUBLESHOOTING
 - /login?...&error=OAuthSignin, UI logs show
   "getaddrinfo ENOTFOUND keycloak.<domain>" although the name
   resolves fine from the node
-    pods inherit the node's DHCP search domain (check
-    "search ..." in a pod's /etc/resolv.conf). If the ISP/cloud
-    resolvers answer <anything>.<that-search-domain> with NOERROR
-    instead of NXDOMAIN, musl-based images (Alpine/Node) stop at
-    that empty answer and never try the bare public name — ALL
-    external DNS fails in pods while cluster names work. Fix in
-    CoreDNS: add a server block ABOVE ".:53" in the coredns
-    ConfigMap (kube-system) answering that zone authoritatively:
-        <search-domain>:53 {
-            errors
-            template ANY ANY {
-                rcode NXDOMAIN
-            }
-        }
-    then: kubectl -n kube-system rollout restart deploy/coredns
+    the pod-DNS search-domain problem — diagnosis and the CoreDNS
+    NXDOMAIN fix are STEP 5b. (Symptom recap: ALL external DNS
+    fails inside pods while cluster names keep working.)
 - Cluster pages (Nodes/Resources/Pods/Namespaces) all 502 with
   {"code":"CM-0040","message":"Cluster registry kubeconfig fetch
   failed ... ResourceAccessException"} — or 500 "... is forbidden:
