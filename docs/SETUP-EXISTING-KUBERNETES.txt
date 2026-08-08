@@ -75,10 +75,17 @@ First check whether one is already running:
 
     kubectl get svc -A | grep -iE 'ingress.*LoadBalancer|LoadBalancer.*ingress'
     # note the EXTERNAL-IP — that is the <IP> for step 3. No
-    # LoadBalancer service? The controller is in hostPort/NodePort
-    # mode — use the node's public IP instead.
+    # LoadBalancer service? Then it must be bound to the node's
+    # ports directly — CONFIRM it, a pre-installed controller with
+    # a plain ClusterIP service and no hostPort is unreachable from
+    # outside:
+    curl -s -o /dev/null -w '%{http_code}\n' http://localhost/
+    # on the node: 404 = nginx answers on the hostPort, use the
+    # node's public IP as <IP>. Connection refused = no hostPort;
+    # re-install the controller with the hostPort flags below
+    # (helm upgrade works too).
 
-If all three check out, skip to step 3. Otherwise install
+If the checks pass, skip to step 3. Otherwise install
 ingress-nginx:
 
     # Bare metal only, FIRST: install MetalLB with an address pool so
