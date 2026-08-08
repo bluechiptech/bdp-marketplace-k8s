@@ -239,12 +239,30 @@ Default is plain HTTP until you give it a certificate. Pick one:
 --------------------------------------------------------------------
 STEP 6 — LOG IN
 --------------------------------------------------------------------
+There is no default password. The post-install seed job generates
+random passwords for the two seeded application users (admin and
+engineer), sets them in Keycloak and stores them in the
+bdp-credentials secret. Retrieve them with:
+
+    # user "admin":
     kubectl get secret bdp-credentials -n bdp \
-      -o jsonpath='{.data.username}' | base64 -d; echo
+      -o jsonpath='{.data.admin-password}' | base64 -d; echo
+    # user "engineer":
     kubectl get secret bdp-credentials -n bdp \
-      -o jsonpath='{.data.password}' | base64 -d; echo
+      -o jsonpath='{.data.engineer-password}' | base64 -d; echo
+
+(The Keycloak admin-console superuser is separate: user "admin",
+password in the bdp-keycloak secret, key admin-password.)
 
 Browse to https://bdp.yourcompany.com and sign in.
+
+If bdp-credentials is missing, the seed job failed after resetting
+the Keycloak passwords — the generated passwords are lost. Fix the
+cause (kubectl logs job/bdp-seed-<revision> -n bdp), then re-run the
+seed, which regenerates and stores fresh passwords (the post-upgrade
+hook recreates the job automatically):
+
+    helm upgrade bdp ./charts/bdp -n bdp --reuse-values
 
 --------------------------------------------------------------------
 STEP 7 — ACTIVATE THE LICENSE
@@ -324,6 +342,35 @@ TROUBLESHOOTING
       --set global.keycloakHostAliasIp=<ClusterIP of the
         ingress-nginx-controller Service>
     and helm upgrade.
+- /login?...&error=OAuthSignin, UI logs show
+  "getaddrinfo ENOTFOUND keycloak.<domain>" although the name
+  resolves fine from the node
+    pods inherit the node's DHCP search domain (check
+    "search ..." in a pod's /etc/resolv.conf). If the ISP/cloud
+    resolvers answer <anything>.<that-search-domain> with NOERROR
+    instead of NXDOMAIN, musl-based images (Alpine/Node) stop at
+    that empty answer and never try the bare public name — ALL
+    external DNS fails in pods while cluster names work. Fix in
+    CoreDNS: add a server block ABOVE ".:53" in the coredns
+    ConfigMap (kube-system) answering that zone authoritatively:
+        <search-domain>:53 {
+            errors
+            template ANY ANY {
+                rcode NXDOMAIN
+            }
+        }
+    then: kubectl -n kube-system rollout restart deploy/coredns
+- Login page loads but the seeded admin/engineer passwords from
+  bdp-credentials are rejected ("Invalid user credentials")
+    a seed run reset the Keycloak passwords but failed before (or
+    while) publishing them — Keycloak and the secret are out of
+    sync. Re-sync WITHOUT re-running the seed: take the Keycloak
+    superuser password (secret bdp-keycloak, key admin-password),
+    get an admin token from realm master (client_id=admin-cli),
+    and PUT /admin/realms/bdp/users/<uid>/reset-password for admin
+    and engineer with the values from bdp-credentials. (Or simply
+    re-run the seed via helm upgrade --reuse-values, which
+    regenerates both sides.)
 - PVCs Pending
     no default StorageClass, or a storage class was set to "" (never
     do that — an empty string disables dynamic provisioning).

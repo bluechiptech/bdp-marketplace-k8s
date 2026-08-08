@@ -19,14 +19,22 @@ ENGINEER_PASS=$(openssl rand -hex 12)
 
 KC_TOKEN=$(curl -s -X POST "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" \
   -d client_id=admin-cli -d "username=$KEYCLOAK_ADMIN" \
-  -d "password=$KEYCLOAK_ADMIN_PASSWORD" -d grant_type=password | jq -r .access_token)
+  --data-urlencode "password=$KEYCLOAK_ADMIN_PASSWORD" -d grant_type=password | jq -r .access_token)
+[ -n "$KC_TOKEN" ] && [ "$KC_TOKEN" != "null" ] \
+  || { echo "ERROR: could not obtain Keycloak admin token"; exit 1; }
 
+# A password reset that fails silently leaves Keycloak and the published
+# secret out of sync — the generated passwords are unrecoverable. Fail hard.
 set_pass() {
   uid=$(curl -s -H "Authorization: Bearer $KC_TOKEN" \
     "$KEYCLOAK_URL/admin/realms/bdp/users?username=$1&exact=true" | jq -r '.[0].id')
-  curl -s -X PUT -H "Authorization: Bearer $KC_TOKEN" -H "Content-Type: application/json" \
+  [ -n "$uid" ] && [ "$uid" != "null" ] \
+    || { echo "ERROR: user $1 not found in realm bdp"; exit 1; }
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT \
+    -H "Authorization: Bearer $KC_TOKEN" -H "Content-Type: application/json" \
     "$KEYCLOAK_URL/admin/realms/bdp/users/$uid/reset-password" \
-    -d "{\"type\":\"password\",\"value\":\"$2\",\"temporary\":false}"
+    -d "{\"type\":\"password\",\"value\":\"$2\",\"temporary\":false}")
+  [ "$code" = "204" ] || { echo "ERROR: reset-password for $1 returned HTTP $code"; exit 1; }
 }
 set_pass admin    "$BDP_ADMIN_PASS"
 set_pass engineer "$ENGINEER_PASS"
