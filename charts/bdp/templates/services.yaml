@@ -184,10 +184,12 @@ subjects:
     name: bdp-provisioner
     namespace: {{ .Release.Namespace }}
 ---
-{{- /* cluster-manager serves the Nodes page for the LOCAL (in-cluster)
-       deployment target through its ambient client: list/describe plus
-       cordon/uncordon (node patch) and drain (pod eviction). Node ops
-       only — no secrets, NOT cluster-admin. */}}
+{{- /* cluster-manager serves the cluster pages for the LOCAL (in-cluster)
+       deployment target through its ambient client: nodes (list/describe,
+       cordon/uncordon patch, drain eviction), namespaces (list/create/
+       delete), workloads (pods/services/PVCs read, pod delete, deployment/
+       statefulset scale) and the metrics API. No secrets, NOT
+       cluster-admin. */}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -207,6 +209,18 @@ rules:
   - apiGroups: [""]
     resources: [pods/eviction]
     verbs: [create]
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, watch, create, delete]
+  - apiGroups: [""]
+    resources: [services, persistentvolumeclaims, componentstatuses]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [deployments, statefulsets, replicasets, daemonsets, deployments/scale, statefulsets/scale]
+    verbs: [get, list, watch, patch, update]
+  - apiGroups: [metrics.k8s.io]
+    resources: [nodes, pods]
+    verbs: [get, list]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
