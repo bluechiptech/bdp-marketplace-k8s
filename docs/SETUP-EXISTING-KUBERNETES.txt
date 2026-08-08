@@ -225,12 +225,12 @@ EOF
 
     helm install bdp charts/bdp -n bdp --create-namespace \
       -f ~/pull-secrets.yaml \
-      --set global.externalDomain=bdp.yourcompany.com \
+      --set global.externalDomain=mtnbdp.bluechiptech.biz \
       --set sharedStorage.enabled=false \
       --set billing.mode=byol \
       --set global.tls.mode=acme \
       --set global.tlsSecretName=bdp-tls \
-      --set global.adminEmail=you@yourcompany.com \
+      --set global.adminEmail=agbadeyanka@bluechiptech.biz \
       --set loki.chunksCache.allocatedMemory=512 \
       --set loki.resultsCache.allocatedMemory=256
 
@@ -281,19 +281,32 @@ that bootstraps the Keycloak realm.
 --------------------------------------------------------------------
 STEP 5 — TLS
 --------------------------------------------------------------------
-Default is plain HTTP until you give it a certificate. Pick one:
+If you installed with the 4c command as printed, THIS STEP IS
+ALREADY DONE — its three global.tls* --set flags ARE the Let's
+Encrypt configuration, and cert-manager is already requesting the
+certificate. Just verify:
+
+    kubectl get certificate -n bdp
+    # bdp-tls   READY True   = certificate issued, HTTPS is live.
+    # READY False after ~5 minutes: almost always DNS — re-check
+    # step 3 (BOTH names must resolve publicly to the ingress IP);
+    # kubectl get order,challenge -n bdp shows the ACME progress,
+    # and see troubleshooting for solver ImagePullBackOff.
+
+The flags exist separately because there are three TLS choices; the
+other two replace the global.tls* flags in the 4c command:
 
 - Own certificate:
       kubectl create secret tls bdp-tls -n bdp --cert=... --key=...
-  and add:  --set global.tlsSecretName=bdp-tls
+  and install with just:  --set global.tlsSecretName=bdp-tls
+  (drop global.tls.mode and global.adminEmail)
 
-- Let's Encrypt (domain must be publicly resolvable):
-      --set global.tls.mode=acme \
-      --set global.tlsSecretName=bdp-tls \
-      --set global.adminEmail=you@yourcompany.com
-
-- Throwaway test only:
+- Throwaway test only (plain HTTP, no certificate):
       --set global.insecureSkipTlsVerify=true
+
+Changed your mind after installing? Re-run the full 4c command with
+"helm upgrade bdp" in place of "helm install bdp" and the TLS flags
+you want. (Mind the password-rotation note in step 6.)
 
 --------------------------------------------------------------------
 STEP 6 — LOG IN
