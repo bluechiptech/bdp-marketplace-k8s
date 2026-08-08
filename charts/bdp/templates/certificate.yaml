@@ -39,6 +39,15 @@ spec:
       - http01:
           ingress:
             ingressClassName: {{ .Values.global.ingressClassName }}
+            {{- with .Values.global.imagePullSecrets }}
+            # The solver pod pulls the acmesolver image from the same private
+            # registry as everything else, but runs under the namespace's
+            # DEFAULT ServiceAccount — without this it wedges in
+            # ImagePullBackOff and the certificate never issues.
+            podTemplate:
+              spec:
+                imagePullSecrets: {{- toYaml . | nindent 18 }}
+            {{- end }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate

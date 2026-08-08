@@ -193,7 +193,9 @@ copies and break the registry wiring.
     The two loki lines shrink its caches from the ~9 GB the subchart
     defaults request down to 768 MB — required on a 16 GB node (see
     step 0), harmless headroom on bigger clusters (drop them if you
-    have 32 GB+ and want the full log-query cache).
+    have 32 GB+ and want the full log-query cache). On a 16 GB node
+    also halve the per-service memory requests:
+      --set serviceDefaults.resources.requests.memory=256Mi
 
     Deliberately NO --wait: helm applies everything and returns
     (after a short pause while the pre-install hooks run), then the
@@ -212,10 +214,10 @@ copies and break the registry wiring.
       sharedStorage line with:
           --set sharedStorage.storageClass=<your-RWX-class>
     - A failed attempt can leave the release name in use; clear it
-      with "helm uninstall bdp -n bdp" and re-run. NOTE: the
-      uninstall may delete the adopted cert-manager CRDs — check
-      with "kubectl get crd | grep cert-manager" and redo step 4b
-      if they are gone.
+      with "helm uninstall bdp -n bdp" and re-run. The adopted
+      cert-manager CRDs survive the uninstall (they carry
+      helm.sh/resource-policy: keep); re-running step 4b anyway is
+      harmless — it is idempotent.
 
 ALTERNATIVE — GHCR, no Azure credentials (NOT YET AVAILABLE: requires
 the vendor's GHCR publish, scripts/release.sh, to have run; until
@@ -305,6 +307,50 @@ Then provision a tool from the UI catalog (e.g. ClickHouse) — it
 should pull its chart and images from GHCR too.
 
 --------------------------------------------------------------------
+WORKED EXAMPLE — THE VERIFIED MTN INSTALL (2026-08)
+--------------------------------------------------------------------
+Every placeholder above, with the real values of the reference
+install this guide was verified against (single kubeadm v1.35 node
+"ag-2222-mtn-cloud-mk8s-m-1", 8 CPU / 16 GB, hostPort ingress):
+
+    <IP> / node public IP        102.89.90.152
+    bdp.yourcompany.com          mtnbdp.bluechiptech.biz
+    keycloak.bdp.yourcompany.com keycloak.mtnbdp.bluechiptech.biz
+    DNS                          two A records -> 102.89.90.152
+    registry                     bdpmarketplace.azurecr.io
+                                 (secret bdp-registry-cred, ns bdp)
+    StorageClass                 local-path (default), RWO-only
+    you@yourcompany.com          agbadeyanka@bluechiptech.biz
+
+The exact install command (helm get values bdp -n bdp reproduces
+this list from the live release):
+
+    helm install bdp charts/bdp -n bdp --create-namespace \
+      -f ~/pull-secrets.yaml \
+      --set global.externalDomain=mtnbdp.bluechiptech.biz \
+      --set sharedStorage.enabled=false \
+      --set billing.mode=byol \
+      --set global.tls.mode=acme \
+      --set global.tlsSecretName=bdp-tls \
+      --set global.adminEmail=agbadeyanka@bluechiptech.biz \
+      --set loki.chunksCache.allocatedMemory=512 \
+      --set loki.resultsCache.allocatedMemory=256 \
+      --set serviceDefaults.resources.requests.memory=256Mi
+
+    (The last line halves every platform service's memory request
+    from the 512Mi default — together with the loki lines this is
+    what makes the stack fit a 16 GB node.)
+
+Post-install fixes this environment needed, both covered in
+TROUBLESHOOTING below:
+  - CoreDNS NXDOMAIN server block for the node's DHCP search domain
+    cloud-1.ict.mtn.com.ng (MTN's resolvers answer NOERROR for
+    anything under it, which breaks all external DNS in musl pods).
+  - One-time Keycloak/bdp-credentials password re-sync after a
+    partially failed seed run (fixed in the seed image going
+    forward).
+
+--------------------------------------------------------------------
 WHAT THIS PROCEDURE INSTALLS ON THE CLUSTER
 --------------------------------------------------------------------
 Inventory of everything the steps above leave behind (useful for
@@ -326,9 +372,14 @@ audits and teardown):
     Let's Encrypt account + cert  Issuer bdp-acme / Certificate
                                   bdp-tls in ns bdp (acme mode only)
 
-Teardown: helm uninstall bdp -n bdp (CRDs adopted in 4b go with it);
-the ingress controller, storage provisioner and pull secret are
-yours to keep or delete separately.
+Teardown (validated by a full uninstall/re-install cycle): helm
+uninstall bdp -n bdp removes the release but KEEPS the cert-manager
+CRDs and the bdp-platform-secrets secret (helm.sh/resource-policy:
+keep); for a truly clean slate also "kubectl delete namespace bdp"
+(this wipes ALL platform data, the pull secret and the issued
+certificate — back the pull secret up first if you no longer have
+the registry password). The ingress controller and storage
+provisioner are yours to keep or delete separately.
 
 --------------------------------------------------------------------
 TROUBLESHOOTING
@@ -355,9 +406,11 @@ TROUBLESHOOTING
     (ports section below).
 - TLS certificate stuck READY:False; cm-acme-http-solver-* pods in
   ImagePullBackOff
-    the ACME challenge solver pods run under the namespace's DEFAULT
-    ServiceAccount, which does not reference the pull secret. Attach
-    it and let cert-manager recreate the solvers:
+    charts from 2026-08-08 set imagePullSecrets on the solver pod
+    template automatically — on older charts the solver pods run
+    under the namespace's DEFAULT ServiceAccount, which does not
+    reference the pull secret. Attach it and let cert-manager
+    recreate the solvers:
       kubectl patch serviceaccount default -n bdp \
         -p '{"imagePullSecrets":[{"name":"bdp-registry-cred"}]}'
       kubectl delete pods -n bdp -l acme.cert-manager.io/http01-solver=true
