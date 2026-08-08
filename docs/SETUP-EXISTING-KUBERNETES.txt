@@ -148,6 +148,11 @@ record, login will fail.) Verify before installing:
     dig +short keycloak.bdp.yourcompany.com
     # both must print the IP
 
+Provisioned data tools each get their own subdomain later
+(spark.<domain>, nifi.<domain>, ...) — the wildcard covers them all
+automatically; with individual A records you must add one per tool
+you install (see step 8b).
+
 For a quick test without DNS, use <ip>.sslip.io as the domain.
 
 --------------------------------------------------------------------
@@ -335,7 +340,7 @@ the install completes and TLS issues, yet login bounces forever with
 /login?...&error=OAuthSignin. Check for it now instead of finding
 out in the browser:
 
-    kubectl exec -n bdp deploy/bdp-ui -- getent hosts keycloak.<your-domain>
+    kubectl exec -n bdp deploy/bdp-ui -- getent hosts keycloak.mtnbdp.bluechiptech.biz
     # prints an IP  -> fine, go to step 6.
     # prints NOTHING -> pods cannot resolve ANY external name; read on.
 
@@ -359,6 +364,8 @@ kubectl apply -f /tmp/coredns.yaml
 kubectl -n kube-system rollout restart deploy/coredns
 
     # ~30s later the getent test above must print the IP.
+
+    kubectl exec -n bdp deploy/bdp-ui -- getent hosts keycloak.mtnbdp.bluechiptech.biz
 
 This edit lives in the coredns ConfigMap (kube-system), outside the
 bdp release — kubeadm upgrades can revert it; re-apply if external
@@ -418,6 +425,69 @@ STEP 8 — VERIFY
 
 Then provision a tool from the UI catalog (e.g. ClickHouse) — it
 should pull its chart and images from GHCR too.
+
+--------------------------------------------------------------------
+STEP 8b — TLS FOR PROVISIONED TOOL UIs
+--------------------------------------------------------------------
+Each provisioned tool gets its own subdomain ingress
+(spark.<domain>, nifi.<domain>, ...). Two things about them:
+
+DNS: the step 3 wildcard record covers every tool automatically.
+If you created individual A records instead, add one per tool you
+install, or add the wildcard now.
+
+TLS: service-manager currently creates tool ingresses WITHOUT a
+certificate, so the browser shows "connection is not private" (or
+what looks like a dead site) on an otherwise working tool UI. This
+is a known gap — it will be automatic in a future release; until
+then, run the following.
+
+One-time per cluster (copies the pull secret into the tools
+namespace and creates an ACME issuer there; put YOUR admin email
+in; copy flush-left — heredoc):
+
+kubectl get secret bdp-registry-cred -n bdp -o yaml \
+  | grep -v "creationTimestamp\|resourceVersion\|uid:" \
+  | sed "s/namespace: bdp$/namespace: bdp-services/" \
+  | kubectl apply -f -
+
+cat <<'EOF' | sed "s/you@yourcompany.com/YOUR-EMAIL-HERE/" | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: bdp-acme
+  namespace: bdp-services
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: you@yourcompany.com
+    privateKeySecretRef:
+      name: bdp-acme-account
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx
+            podTemplate:
+              spec:
+                imagePullSecrets:
+                  - name: bdp-registry-cred
+EOF
+
+After EVERY tool install, run this loop — it is idempotent and
+patches ALL tool ingresses that exist at that moment (already
+patched ones are re-applied unchanged, so just run it again):
+
+for ing in $(kubectl get ingress -n bdp-services -o name); do
+  host=$(kubectl get "$ing" -n bdp-services -o jsonpath='{.spec.rules[0].host}')
+  tool=$(basename "$ing" | sed 's/-ingress$//')
+  kubectl patch "$ing" -n bdp-services --type=merge -p "{\"metadata\":{\"annotations\":{\"cert-manager.io/issuer\":\"bdp-acme\"}},\"spec\":{\"tls\":[{\"hosts\":[\"$host\"],\"secretName\":\"$tool-tls\"}]}}"
+done
+
+Verify (~1-2 minutes per new certificate):
+
+    kubectl get certificate -n bdp-services
+    # every <tool>-tls READY True; then https://<tool>.<domain>
+    # loads with a valid padlock.
 
 --------------------------------------------------------------------
 WORKED EXAMPLE — THE VERIFIED MTN INSTALL (2026-08)
@@ -562,6 +632,12 @@ TROUBLESHOOTING
     and engineer with the values from bdp-credentials. (Or simply
     re-run the seed via helm upgrade --reuse-values, which
     regenerates both sides.)
+- Tool UI subdomain (spark.<domain>, nifi.<domain>, ...) shows a
+  certificate warning / "connection is not private" while the
+  platform's own pages are fine
+    tool ingresses are currently created without TLS — the
+    per-cluster issuer setup and the patch-all-tools loop are
+    STEP 8b.
 - PVCs Pending
     no default StorageClass, or a storage class was set to "" (never
     do that — an empty string disables dynamic provisioning).
