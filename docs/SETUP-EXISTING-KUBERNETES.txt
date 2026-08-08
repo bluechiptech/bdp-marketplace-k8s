@@ -296,10 +296,29 @@ certificate. Just verify:
 The flags exist separately because there are three TLS choices; the
 other two replace the global.tls* flags in the 4c command:
 
-- Own certificate:
-      kubectl create secret tls bdp-tls -n bdp --cert=... --key=...
-  and install with just:  --set global.tlsSecretName=bdp-tls
-  (drop global.tls.mode and global.adminEmail)
+- OWN / EXISTING CERTIFICATE (corporate CA, purchased cert, or one
+  you already operate). Requirements: PEM format; the cert must
+  cover BOTH names — bdp.yourcompany.com AND
+  keycloak.bdp.yourcompany.com (two SANs or a wildcard); the cert
+  file must hold the full chain, server certificate first, then
+  the intermediates. Load it as the TLS secret:
+
+    kubectl create namespace bdp --dry-run=client -o yaml | kubectl apply -f -
+    kubectl create secret tls bdp-tls -n bdp \
+      --cert=/path/to/fullchain.pem \
+      --key=/path/to/privkey.pem
+
+  Then run the 4c command with the three global.tls* flags replaced
+  by just:
+      --set global.tlsSecretName=bdp-tls
+  Already installed in acme (or plain-HTTP) mode? Same thing as an
+  upgrade: repeat the full 4c command with "helm upgrade bdp" in
+  place of "helm install bdp", swapping the TLS flags as above.
+  On renewal, replace the secret in place — the ingress picks it
+  up automatically, no restart needed:
+    kubectl create secret tls bdp-tls -n bdp \
+      --cert=/path/to/new-fullchain.pem --key=/path/to/new-privkey.pem \
+      --dry-run=client -o yaml | kubectl apply -f -
 
 - Throwaway test only (plain HTTP, no certificate):
       --set global.insecureSkipTlsVerify=true
