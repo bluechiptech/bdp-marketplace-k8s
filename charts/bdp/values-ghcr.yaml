@@ -181,7 +181,7 @@ global:
       grafana:
         registry: ghcr.io/bluechiptech
         image: tools/grafana
-        digest: sha256:f33c692ba1a5ee15724cf6b22db65e9de39dde14d80f7d73a9546e3fc917270b
+        digest: sha256:ab5cb380e3ff3172d6c8bd2e7cfd31cce977d2881b260e1f5bc089bf0b759b43
       grafana-sc-dashboard:
         registry: ghcr.io/bluechiptech
         image: tools/k8s-sidecar
@@ -246,7 +246,7 @@ global:
       loki-canary:
         registry: ghcr.io/bluechiptech
         image: tools/loki-canary
-        digest: sha256:6860b3d70223f3c1d5bb1f32cfde94b7d27ad115c7087dddb81313c173f6a29d
+        digest: sha256:943197a9ee4236cecb9a53a56e643034a293f929df7bccba416304ca3d118c10
       nginx:
         registry: ghcr.io/bluechiptech
         image: tools/nginx-unprivileged
@@ -926,8 +926,8 @@ kube-prometheus-stack:
     image:
       registry: ghcr.io/bluechiptech
       repository: tools/grafana
-      tag: "13.1.1"
-      sha: f33c692ba1a5ee15724cf6b22db65e9de39dde14d80f7d73a9546e3fc917270b
+      tag: "13.1.3"
+      sha: ab5cb380e3ff3172d6c8bd2e7cfd31cce977d2881b260e1f5bc089bf0b759b43
     sidecar:
       image:
         registry: ghcr.io/bluechiptech
@@ -1066,8 +1066,8 @@ loki:
     image:
       registry: ghcr.io/bluechiptech
       repository: tools/loki-canary
-      tag: "3.6.8"
-      digest: sha256:6860b3d70223f3c1d5bb1f32cfde94b7d27ad115c7087dddb81313c173f6a29d
+      tag: "3.6.15"
+      digest: sha256:943197a9ee4236cecb9a53a56e643034a293f929df7bccba416304ca3d118c10
   gateway:
     image:
       registry: ghcr.io/bluechiptech
