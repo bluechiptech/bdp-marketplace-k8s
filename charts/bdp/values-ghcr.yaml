@@ -151,10 +151,17 @@ global:
         registry: ghcr.io/bluechiptech
         image: tools/cert-manager-acmesolver
         digest: sha256:71468feed486c4cf3ca431d93f996771531ab2e68f261f1a15be845720802a8a
+      # The janitor script needs only sh + kubectl + awk. alpine/kubectl is
+      # kubectl on a bare Alpine base — the busybox shell tools and nothing
+      # else. It replaced tools/alpine/k8s, the full toolbox image (helm,
+      # python, docker CLI, ...) whose surplus packages carried all 68
+      # Critical/High findings of the 2026-08 Azure marketplace certification
+      # scan. Do not reintroduce alpine/k8s, and don't switch to
+      # tools/kubectl (bitnami) either — it has no shell at all.
       janitor:
         registry: ghcr.io/bluechiptech
-        image: tools/alpine/k8s
-        digest: sha256:f99618a60aba5a076461875a4e8f6fc0124668ae58c91fd7e4aecced6bd83c4d
+        image: tools/alpine/kubectl
+        digest: sha256:5d380d18d2509483aef3df54d676c767d798d55ec9f3e02dabfa4c88fe6559bd
       # ── Observability (Task G1): kube-prometheus-stack 87.19.2 + Loki 7.1.0 ──
       # Keyed by container name as rendered (NOT image name) — several containers
       # share one mirrored image (grafana-sc-dashboard/grafana-sc-datasources,

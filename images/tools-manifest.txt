@@ -17,7 +17,7 @@ tools/cert-manager-webhook:v1.15.3           quay.io/jetstack/cert-manager-webho
 tools/cert-manager-cainjector:v1.15.3        quay.io/jetstack/cert-manager-cainjector:v1.15.3
 tools/cert-manager-startupapicheck:v1.15.3   quay.io/jetstack/cert-manager-startupapicheck:v1.15.3
 tools/cert-manager-acmesolver:v1.15.3        quay.io/jetstack/cert-manager-acmesolver:v1.15.3
-tools/alpine/k8s:1.30.2                      docker.io/alpine/k8s:1.30.2
+tools/alpine/kubectl:1.36.3                  docker.io/alpine/kubectl:1.36.3
 tools/busybox:latest                         docker.io/library/busybox:latest
 tools/kubectl:v1.31.0                        docker.io/bitnami/kubectl:1.31.0
 tools/grafana:13.1.1                         docker.io/grafana/grafana:13.1.1
