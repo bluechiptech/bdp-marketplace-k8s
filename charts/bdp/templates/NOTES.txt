@@ -1,0 +1,66 @@
+
+BDP is installing. Two things decide whether you can reach it.
+
+────────────────────────────────────────────────────────────────────────
+1. GET THE INGRESS IP
+────────────────────────────────────────────────────────────────────────
+{{- if index .Values "ingress-nginx" "enabled" }}
+The ingress controller ships with this chart. Its load balancer takes a
+minute or two to be assigned a public address:
+
+    kubectl get svc -n {{ .Release.Namespace }} ingress-nginx-controller \
+      -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+
+Re-run it until it prints an address rather than nothing.
+{{- else }}
+ingress-nginx.enabled is false, so this chart did NOT install a controller.
+The Ingress it created stays unclaimed -- no public address -- until a
+controller with class "{{ .Values.global.ingressClassName }}" exists on the
+cluster. Find its load balancer address with:
+
+    kubectl get svc -A --field-selector spec.type=LoadBalancer
+{{- end }}
+
+────────────────────────────────────────────────────────────────────────
+2. POINT DNS AT IT  --  A WILDCARD RECORD, NOT A SINGLE ONE
+────────────────────────────────────────────────────────────────────────
+    *.{{ .Values.global.externalDomain }}   ->   <that IP>
+
+The wildcard is not optional. Sign-in is served at
+keycloak.{{ .Values.global.externalDomain }}, and every data tool you
+provision later gets its own subdomain, so one A record for
+{{ .Values.global.externalDomain }} alone leaves login broken.
+
+Note this rules out an Azure DNS label
+(<name>.<region>.cloudapp.azure.com): Azure assigns a single A record
+there, and subdomains of it do not resolve.
+
+No domain to hand? Once you have the IP, reinstall with
+global.externalDomain=<ip-with-dashes>.sslip.io -- sslip.io resolves every
+subdomain of that name to the same address, wildcard included.
+
+Verify before trying to sign in:
+
+    nslookup {{ .Values.global.externalDomain }}
+    nslookup keycloak.{{ .Values.global.externalDomain }}
+
+BOTH must return the ingress IP.
+
+────────────────────────────────────────────────────────────────────────
+3. SIGN IN
+────────────────────────────────────────────────────────────────────────
+There is no default password. The seed job generates one per user:
+
+    kubectl get secret bdp-credentials -n {{ .Release.Namespace }} \
+      -o jsonpath='{.data.admin-password}' | base64 -d; echo
+
+Then open {{ if .Values.global.tlsSecretName }}https{{ else }}http{{ end }}://{{ .Values.global.externalDomain }} and sign in as "admin".
+
+Every upgrade re-runs the seed and ROTATES that password, so re-read the
+secret after upgrading rather than reusing an old one.
+{{- if not .Values.global.tlsSecretName }}
+
+No TLS certificate is configured, so the platform is served over plain
+HTTP -- including Keycloak, which issues every token. Fine for evaluation;
+supply global.tlsSecretName before real use.
+{{- end }}

@@ -40,12 +40,12 @@
         "name": "externalDomain",
         "type": "Microsoft.Common.TextBox",
         "label": "External domain",
-        "defaultValue": "bdp.example.com",
-        "toolTip": "External domain",
+        "defaultValue": "",
+        "toolTip": "A domain you control and can create DNS records for, e.g. bdp.yourcompany.com. After deployment you must point a WILDCARD record (*.your-domain) at the ingress load balancer's public IP, which the deployment outputs. The wildcard is required: sign-in is served at keycloak.your-domain and each provisioned tool gets its own subdomain, so a single A record is not enough. No domain to hand? Use <ip-with-dashes>.sslip.io once you have the IP.",
         "constraints": {
           "required": true,
-          "regex": "^[a-zA-Z0-9.-]{1,63}$",
-          "validationMessage": "1-63 chars: letters, numbers, dot, hyphen"
+          "regex": "^(?!(.*\\.)?example\\.(com|org|net)$)(?!localhost$)[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)+$",
+          "validationMessage": "Enter a real domain you control, with at least one dot (e.g. bdp.yourcompany.com). Placeholder domains such as example.com will not resolve and the platform will be unreachable."
         }
       },
       {

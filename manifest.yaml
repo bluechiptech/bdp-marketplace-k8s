@@ -1,7 +1,7 @@
 applicationName: bdp
 publisher: bluechiptech
 description: Bluechip Data Platform - data-tool management plane for AKS
-version: 1.0.6
+version: 1.0.9
 helmChart: ./charts/bdp
 clusterArmTemplate: ./mainTemplate.json
 uiDefinition: ./createUiDefinition.json

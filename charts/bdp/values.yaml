@@ -174,6 +174,14 @@ global:
         registry: bdpmarketplace.azurecr.io
         image: tools/kubectl
         digest: sha256:99b37df34bc4f99ee322521d4c85cb98c1ceb8f70ff0618bef84eec9fe1ebc20
+      ingress-nginx-controller:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/ingress-nginx/controller
+        digest: sha256:594ceea76b01c592858f803f9ff4d2cb40542cae2060410b2c95f75907d659e1
+      ingress-nginx-kube-webhook-certgen:
+        registry: bdpmarketplace.azurecr.io
+        image: tools/ingress-nginx/kube-webhook-certgen
+        digest: sha256:01038e7de14b78d702d2849c3aad72fd25903c4765af63cf16aa3398f5d5f2dd
       grafana:
         registry: bdpmarketplace.azurecr.io
         image: tools/grafana
@@ -721,6 +729,55 @@ sharedStorage:
   enabled: true
   storageClass: "azurefile-csi"
   size: 50Gi
+
+# ── Ingress controller ───────────────────────────────────────────────────────
+# Ships WITH the platform. Without a controller the chart's Ingress is never
+# claimed, no LoadBalancer is provisioned, and there is no public address --
+# the platform runs perfectly and is unreachable, which is exactly what
+# marketplace deployments were hitting.
+#
+# Set enabled: false on a cluster that already runs one, and point
+# global.ingressClassName at the existing class.
+ingress-nginx:
+  enabled: true
+  controller:
+    # Pinned to the marketplace ACR by digest, like every other image here.
+    # The digest matches registry.k8s.io because the mirror is done with
+    # `crane cp`, which copies the multi-arch index byte for byte.
+    #
+    # Do NOT mirror this with `az acr import --source <digest>`: that resolves
+    # the index to ONE platform manifest, and it picked a non-amd64 one. The
+    # image pulled fine and then crashlooped with
+    #   exec /usr/bin/dumb-init: exec format error
+    # which reads like a broken image rather than a broken mirror.
+    image:
+      registry: bdpmarketplace.azurecr.io
+      image: tools/ingress-nginx/controller
+      tag: "v1.15.1"
+      digest: sha256:594ceea76b01c592858f803f9ff4d2cb40542cae2060410b2c95f75907d659e1
+      # chroot variant is not mirrored; keep chroot false so digestChroot is
+      # never consulted.
+      chroot: false
+      digestChroot: ""
+    service:
+      annotations:
+        # REQUIRED on AKS. Azure's load balancer health-probes "/" by default,
+        # which nginx answers with 404, so the LB marks every backend unhealthy
+        # and no traffic is ever forwarded. /healthz is the controller's own
+        # probe endpoint. Omitting this produces a LoadBalancer that has a
+        # public IP and still serves nothing.
+        service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
+    # The admission webhook rejects malformed Ingress objects. Left on: the
+    # platform's own Ingress is generated, but tool provisioning creates more
+    # at runtime and a bad one should fail loudly rather than silently.
+    admissionWebhooks:
+      enabled: true
+      patch:
+        image:
+          registry: bdpmarketplace.azurecr.io
+          image: tools/ingress-nginx/kube-webhook-certgen
+          tag: v1.6.9
+          digest: sha256:01038e7de14b78d702d2849c3aad72fd25903c4765af63cf16aa3398f5d5f2dd
 
 # ── Observability (Task E1) ──────────────────────────────────────────────────
 # kube-prometheus-stack (Prometheus + Alertmanager + Grafana) and Loki, vendored

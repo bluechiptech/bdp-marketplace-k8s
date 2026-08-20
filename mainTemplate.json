@@ -109,6 +109,22 @@
     "location": {
       "type": "string",
       "value": "[parameters('location')]"
+    },
+    "platformUrl": {
+      "type": "string",
+      "value": "[concat(if(empty(parameters('tlsSecretName')), 'http://', 'https://'), parameters('externalDomain'))]"
+    },
+    "nextStep_1_getIngressIp": {
+      "type": "string",
+      "value": "[concat('az aks command invoke -g <resource-group> -n ', parameters('clusterResourceName'), ' --command \"kubectl get svc -n bdp ingress-nginx-controller -o jsonpath={.status.loadBalancer.ingress[0].ip}\"')]"
+    },
+    "nextStep_2_createWildcardDns": {
+      "type": "string",
+      "value": "[concat('Create a WILDCARD DNS record  *.', parameters('externalDomain'), '  pointing at the IP from step 1. A single A record is not enough: sign-in is served at keycloak.', parameters('externalDomain'), ' and each data tool gets its own subdomain.')]"
+    },
+    "nextStep_3_getSignInPassword": {
+      "type": "string",
+      "value": "[concat('az aks command invoke -g <resource-group> -n ', parameters('clusterResourceName'), ' --command \"kubectl get secret bdp-credentials -n bdp -o jsonpath={.data.admin-password}\" | base64 -d   (username: admin)')]"
     }
   }
 }
