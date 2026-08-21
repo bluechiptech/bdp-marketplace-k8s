@@ -85,7 +85,15 @@ spec:
       containers:
         - name: {{ .Values.controller.containerName }}
           {{- with (merge .Values.controller.image .Values.global.image) }}
-          image: {{ if .repository }}{{ .repository }}{{ else }}{{ .registry }}/{{ include "ingress-nginx.image" . }}{{ end }}:{{ .tag }}{{ include "ingress-nginx.imageDigest" . }}
+          {{- /*
+            PATCHED (vendored): emit registry/image@digest with NO tag when a
+            digest is set. Upstream always appends ":{{ .tag }}", and cpa verify
+            matches the rendered image against global.azure.images as
+            registry/image@digest -- the extra tag made it report the image as
+            "not listed" and the marketplace package would not build.
+            Falls back to the tag when no digest is given.
+          */}}
+          image: {{ if .repository }}{{ .repository }}{{ else }}{{ .registry }}/{{ include "ingress-nginx.image" . }}{{ end }}{{ if .digest }}{{ include "ingress-nginx.imageDigest" . }}{{ else }}:{{ .tag }}{{ end }}
           {{- end }}
           imagePullPolicy: {{ .Values.controller.image.pullPolicy }}
         {{- if .Values.controller.lifecycle }}
