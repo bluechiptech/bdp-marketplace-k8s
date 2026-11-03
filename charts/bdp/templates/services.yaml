@@ -94,9 +94,14 @@ spec:
             - name: BDP_LICENSE_ENFORCE_SIGNED
               value: "true"
             {{- end }}
+            {{- /* Rendered through tpl so an extraEnv value can depend on the
+                   release, the way the Keycloak subchart already treats its own
+                   extraEnvVars. Needed for BDP_UI_ACCESS_MODE, which must follow
+                   IP mode. Values without template syntax pass through
+                   unchanged. */}}
             {{- range $k, $v := ($svc.extraEnv | default dict) }}
             - name: {{ $k }}
-              value: {{ $v | quote }}
+              value: {{ tpl ($v | toString) $root | quote }}
             {{- end }}
           resources:
             {{- toYaml $root.Values.serviceDefaults.resources | nindent 12 }}
@@ -289,6 +294,41 @@ rules:
   - apiGroups: [networking.k8s.io]
     resources: [ingresses]
     verbs: [get, list, watch, create, update, patch, delete]
+  {{- /* nodeport UI mode (the default, used on-prem / VM) flips the tool's
+         Service to NodePort on first "Open UI". Without this the PATCH 403s
+         and UiAccessService falls back to a port-forward inside its own pod,
+         handing the browser an unreachable http://<host>:8080. */}}
+  {{- /* create/delete: tools' extra manifests (e.g. the minio-sftp Service)
+         are server-side applied at install and removed at uninstall. */}}
+  - apiGroups: [""]
+    resources: [services]
+    verbs: [create, patch, update, delete]
+  {{- /* Install-time Secrets (stable DB passwords, MinIO per-service S3 keys,
+         minio-sftp-ssh) are server-side applied here. Without this every
+         install uses an ephemeral key and MinIO never mounts its secrets. */}}
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [create, update, patch]
+  {{- /* CompanionPostgresProvisioner server-side applies a Secret + PVC +
+         Deployment + Service per tool that bundles no database (Yatai, Feast,
+         ZenML). Secrets and Services are covered above; PVC and Deployment
+         CREATE were missing, so the apply 403'd and — while the provisioner
+         still swallowed failures — Feast/Yatai/ZenML installed "RUNNING"
+         pointed at databases that did not exist (on-prem, 2026-11-01). The
+         provisioner now fails the install instead, which makes these verbs
+         load-bearing. patch/update on deployments is already granted
+         cluster-wide; PVCs get all three verbs because server-side apply
+         PATCHes on re-reconcile. */}}
+  - apiGroups: [""]
+    resources: [persistentvolumeclaims]
+    verbs: [create, update, patch]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [create]
+  {{- /* ServiceMonitoringService verifies scraping by listing both CRDs. */}}
+  - apiGroups: [monitoring.coreos.com]
+    resources: [servicemonitors, podmonitors]
+    verbs: [get, list]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
