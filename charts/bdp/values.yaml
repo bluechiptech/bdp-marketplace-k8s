@@ -619,6 +619,11 @@ services:
     # each route uri in ${BDP_SVC_<port>} / ${BDP_WS_<port>} (default 127.0.0.1
     # for the VM); these point them at the cluster service DNS instead.
     extraEnv:
+      # The Host the grafana route forwards (Grafana rejects cookie requests
+      # whose Origin mismatches it). The gateway's default appends :3000 (the
+      # VM deployment's UI port); on K8s the browser reaches everything on
+      # the ingress, so the public origin host is the bare external domain/IP.
+      BDP_GRAFANA_PUBLIC_HOST: '{{ .Values.global.externalDomain }}'
       BDP_SVC_7001: http://bdp-auth-service:7001
       BDP_SVC_7002: http://bdp-cluster-manager:7002
       BDP_SVC_7003: http://bdp-service-manager:7003
