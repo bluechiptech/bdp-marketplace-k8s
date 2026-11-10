@@ -6,8 +6,11 @@
 {{- define "bdp.keycloakInternalUrl" -}}
 {{- /* Keycloak serves under httpRelativePath ("/auth" in IP mode) for ALL
        clients, in-cluster ones included -- the internal URL must carry the
-       same prefix or the seed job and every service's issuer URI 404. */ -}}
-http://{{ .Release.Name }}-keycloak:80{{ .Values.keycloak.httpRelativePath | default "/" | trimSuffix "/" }}
+       same prefix or the seed job and every service's issuer URI 404.
+       Namespace-qualified, because this URL also reaches TOOL pods in other
+       namespaces (NiFi's OIDC discovery), and because service-manager treats
+       a ".svc" host as proof the address is pod-reachable cluster DNS. */ -}}
+http://{{ .Release.Name }}-keycloak.{{ .Release.Namespace }}.svc.cluster.local:80{{ .Values.keycloak.httpRelativePath | default "/" | trimSuffix "/" }}
 {{- end -}}
 
 {{/*

@@ -562,7 +562,10 @@ services:
       BDP_SUPERSET_URL: http://superset.bdp-services.svc.cluster.local:8088
       # Managed cloud K8s: expose installed tool UIs via a per-tool subdomain
       # ingress (https://<tool>.<externalDomain>), not NodePort (unreachable).
-      BDP_UI_ACCESS_MODE: ingress
+      # IP MODE is the exception: "<tool>.10.0.4.47" is not a resolvable name,
+      # so tool UIs go to NodePorts on the address itself (services.yaml runs
+      # extraEnv through tpl precisely so this can follow bdp.isIpMode).
+      BDP_UI_ACCESS_MODE: '{{ if include "bdp.isIpMode" . }}nodeport{{ else }}ingress{{ end }}'
   bdp-storage-manager:
     port: 7005
     db: bdp_storage
