@@ -1,3 +1,11 @@
+{{- /* IP mode routes /auth to Keycloak, which only works if Keycloak is
+       actually serving under that prefix. The subchart consumes
+       httpRelativePath directly (no tpl), so it cannot be set conditionally in
+       values.yaml -- catch the mismatch at render time instead of shipping an
+       install whose login silently 404s. */}}
+{{- if and (include "bdp.isIpMode" .) (ne (.Values.keycloak.httpRelativePath | default "/") "/auth") }}
+{{- fail "global.externalDomain is a bare IP, so Keycloak is served at /auth -- but keycloak.httpRelativePath is not \"/auth\". Add: --set keycloak.httpRelativePath=/auth (scripts/setup-existing-k8s.sh does this for you)." }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -15,12 +23,18 @@ spec:
   tls:
     - hosts:
         - {{ .Values.global.externalDomain }}
+        {{- if not (include "bdp.isIpMode" .) }}
         - keycloak.{{ .Values.global.externalDomain }}
+        {{- end }}
       secretName: {{ .Values.global.tlsSecretName }}
   {{- end }}
   rules:
-    - host: {{ .Values.global.externalDomain }}
-      http:
+    {{- /* IP mode omits `host:` entirely. A rule with no host matches ANY Host
+           header, which is what a browser sends when you type a bare address --
+           there is no name to match against. Keycloak then cannot have its own
+           host rule either, so it moves to the /auth path below. */}}
+    - {{ if not (include "bdp.isIpMode" .) }}host: {{ .Values.global.externalDomain }}
+      {{ end }}http:
         paths:
           # NextAuth's own routes (/api/auth/*) are served by the Next.js UI,
           # NOT the platform gateway — more specific than /api so nginx's
@@ -55,12 +69,26 @@ spec:
               service:
                 name: bdp-gateway
                 port: { number: 7000 }
+          {{- if include "bdp.isIpMode" . }}
+          # IP mode: Keycloak lives on a path, not a subdomain. Keycloak itself
+          # is told to serve under the same prefix (KC_HTTP_RELATIVE_PATH=/auth
+          # in values.yaml), so NO rewrite belongs here -- it already emits
+          # /auth/... in its discovery document and redirects. Distinct from
+          # /api/auth above, which is NextAuth on the UI.
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-keycloak
+                port: { number: 80 }
+          {{- end }}
           - path: /
             pathType: Prefix
             backend:
               service:
                 name: bdp-ui
                 port: { number: 3000 }
+    {{- if not (include "bdp.isIpMode" .) }}
     - host: keycloak.{{ .Values.global.externalDomain }}
       http:
         paths:
@@ -70,3 +98,4 @@ spec:
               service:
                 name: {{ .Release.Name }}-keycloak
                 port: { number: 80 }
+    {{- end }}

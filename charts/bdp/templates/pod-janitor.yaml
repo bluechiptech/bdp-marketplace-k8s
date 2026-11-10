@@ -57,14 +57,18 @@ spec:
               args:
                 - |
                   echo "bdp-pod-janitor run $(date)"
-                  # Dead pods: delete immediately, they hold no useful state.
+                  # Zombie pods: delete immediately, they hold no useful state.
+                  # Error pods are deliberately NOT here -- a failed Job's pod
+                  # is the only place its logs live (a live-cluster seed
+                  # failure became undiagnosable after this sweep ate them),
+                  # so they get the same retention window as Completed below.
                   kubectl -n {{ .Release.Namespace }} get pods --no-headers \
-                    | awk '$3 ~ /Error|Evicted|ContainerStatusUnknown|Unknown|NodeLost/ {print $1}' \
+                    | awk '$3 ~ /Evicted|ContainerStatusUnknown|Unknown|NodeLost/ {print $1}' \
                     | while read pod; do
                         echo "deleting dead $pod"
                         kubectl -n {{ .Release.Namespace }} delete pod "$pod" --grace-period=0 --force 2>/dev/null || true
                       done
-                  # Finished pods (Completed/Succeeded) from Jobs and hooks. These
+                  # Finished pods (Completed/Succeeded/Error) from Jobs and hooks. These
                   # were NOT swept before and are what actually piles up -- 37 had
                   # accumulated on the dev server, versus zero in the states above.
                   # They reserve no CPU/memory, so this is hygiene rather than a
@@ -73,11 +77,11 @@ spec:
                   #
                   # Only sweep ones older than {{ .Values.podJanitor.completedRetentionMinutes }}m:
                   # a just-finished Job's pod still holds the logs someone debugging
-                  # a failed install needs, and deleting it the moment it succeeds
+                  # a failed install needs, and deleting it the moment it finishes
                   # destroys that. Age is computed from the pod's AGE column rather
                   # than a timestamp lookup to keep this a single kubectl call.
                   kubectl -n {{ .Release.Namespace }} get pods --no-headers \
-                    | awk '$3 ~ /Completed|Succeeded/ {print $1" "$5}' \
+                    | awk '$3 ~ /Completed|Succeeded|Error/ {print $1" "$5}' \
                     | while read pod age; do
                         keep=0
                         case "$age" in

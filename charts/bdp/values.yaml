@@ -493,11 +493,15 @@ keycloak:
   # The scheme follows whether a certificate exists. With global.tlsSecretName
   # set the ingress serves HTTPS and Keycloak must advertise https; without one
   # it serves plain HTTP, and advertising https would make every redirect fail.
+  # bdp.keycloakBaseUrl is IP-mode aware: scheme://keycloak.<domain> normally,
+  # scheme://<ip>/auth when externalDomain is a bare IP. The old inline
+  # template here produced http://keycloak.<ip> in IP mode, which Keycloak
+  # rejects with a URISyntaxException 500 on every realm endpoint.
   extraEnvVars:
     - name: KC_HOSTNAME_URL
-      value: "http{{ if .Values.global.tlsSecretName }}s{{ end }}://keycloak.{{ .Values.global.externalDomain }}"
+      value: '{{ include "bdp.keycloakBaseUrl" . }}'
     - name: KC_HOSTNAME_ADMIN_URL
-      value: "http{{ if .Values.global.tlsSecretName }}s{{ end }}://keycloak.{{ .Values.global.externalDomain }}"
+      value: '{{ include "bdp.keycloakBaseUrl" . }}'
   # The chart's default "small" resources preset OOM-kills (exit 137) the
   # kc.sh build/augmentation phase — give Keycloak real memory.
   resources:

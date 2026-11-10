@@ -1,4 +1,11 @@
 {{- if eq .Values.global.tls.mode "acme" }}
+{{- /* A public CA cannot issue for a bare IP over HTTP-01, and an ACME server
+       could not reach a private address to run the challenge even if it could.
+       Fail loudly rather than install something that waits forever on an Order
+       that can never complete. */}}
+{{- if include "bdp.isIpMode" . }}
+{{- fail "global.tls.mode is \"acme\" but global.externalDomain is a bare IP address. Let's Encrypt cannot issue a certificate for an IP, and the HTTP-01 challenge cannot reach it. Use tls.mode \"existing\" with your own certificate, or leave global.tlsSecretName empty for plain HTTP." }}
+{{- end }}
 {{- if not .Values.global.adminEmail }}
 {{- fail "global.tls.mode is \"acme\" but global.adminEmail is empty. Let's Encrypt requires a contact address for expiry warnings." }}
 {{- end }}

@@ -275,7 +275,10 @@ spec:
           {{- else if .Values.readinessProbe.enabled }}
           readinessProbe: {{- omit .Values.readinessProbe "enabled" | toYaml | nindent 12 }}
             httpGet:
-              path: {{ .Values.httpRelativePath }}realms/master
+              {{- /* BDP: tolerate httpRelativePath with or without a trailing
+                     slash. Upstream blindly concatenates, so "/auth" (IP mode)
+                     produced "/authrealms/master" and the pod never went Ready. */}}
+              path: {{ .Values.httpRelativePath | trimSuffix "/" }}/realms/master
               port: http
           {{- end }}
           {{- end }}

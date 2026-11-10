@@ -4,11 +4,58 @@
 {{- end -}}
 
 {{- define "bdp.keycloakInternalUrl" -}}
-http://{{ .Release.Name }}-keycloak:80
+{{- /* Keycloak serves under httpRelativePath ("/auth" in IP mode) for ALL
+       clients, in-cluster ones included -- the internal URL must carry the
+       same prefix or the seed job and every service's issuer URI 404. */ -}}
+http://{{ .Release.Name }}-keycloak:80{{ .Values.keycloak.httpRelativePath | default "/" | trimSuffix "/" }}
+{{- end -}}
+
+{{/*
+IP MODE. True when global.externalDomain is a bare IPv4 literal rather than a
+hostname, which is the whole opt-in -- there is no separate switch to keep in
+sync. Nothing else can match this regex: a real domain cannot have an all-numeric
+TLD, so no hostname is ever mistaken for an address.
+
+It exists because an IP has no subdomains. The domain layout puts Keycloak on
+keycloak.<domain>, and "keycloak.10.0.4.83" is not a name anything can resolve,
+so IP mode moves Keycloak to a PATH on the single address instead (/auth) and
+collapses the Ingress to one host-less rule.
+*/}}
+{{- define "bdp.isIpMode" -}}
+{{- if regexMatch "^([0-9]{1,3}\\.){3}[0-9]{1,3}$" .Values.global.externalDomain -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+The scheme every externally-facing URL is built from. Follows whether a
+certificate exists, exactly as the Keycloak KC_HOSTNAME_URL in values.yaml
+already did -- the rest of the chart used to hardcode https, which silently
+broke every plain-HTTP install (the UI pod would call an https URL that the
+ingress was not serving).
+*/}}
+{{- define "bdp.scheme" -}}
+http{{ if .Values.global.tlsSecretName }}s{{ end }}
+{{- end -}}
+
+{{- define "bdp.platformBaseUrl" -}}
+{{ include "bdp.scheme" . }}://{{ .Values.global.externalDomain }}
+{{- end -}}
+
+{{/*
+Where browsers reach Keycloak. Domain mode: its own subdomain. IP mode: the
+/auth path on the single address, which requires KC_HTTP_RELATIVE_PATH=/auth on
+the Keycloak side (set in values.yaml) so Keycloak advertises the same prefix it
+is served on -- otherwise its discovery document hands out URLs that 404.
+*/}}
+{{- define "bdp.keycloakBaseUrl" -}}
+{{- if include "bdp.isIpMode" . -}}
+{{ include "bdp.platformBaseUrl" . }}/auth
+{{- else -}}
+{{ include "bdp.scheme" . }}://keycloak.{{ .Values.global.externalDomain }}
+{{- end -}}
 {{- end -}}
 
 {{- define "bdp.keycloakExternalIssuer" -}}
-https://keycloak.{{ .Values.global.externalDomain }}/realms/bdp
+{{ include "bdp.keycloakBaseUrl" . }}/realms/bdp
 {{- end -}}
 
 {{- define "bdp.postgresHost" -}}
@@ -33,7 +80,7 @@ bdp-postgres
 - name: BDP_KEYCLOAK_EXTERNAL_ISSUER
   value: {{ include "bdp.keycloakExternalIssuer" . }}
 - name: BDP_CORS_ALLOWED_ORIGINS
-  value: https://{{ .Values.global.externalDomain }}
+  value: {{ include "bdp.platformBaseUrl" . }}
 {{- /* IngressManager uses this to class per-tool UI ingresses (default traefik) */}}
 - name: BDP_INGRESS_CLASS
   value: {{ .Values.global.ingressClassName | quote }}
