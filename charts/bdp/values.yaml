@@ -1015,7 +1015,11 @@ kube-prometheus-stack:
         sha: 44065fae116464099acd5bfddb62dcb2cf53c8fa18948d215109d64a5560306e
     grafana.ini:
       server:
-        root_url: "%(protocol)s://%(domain)s/grafana"
+        # Explicit, not %(domain)s: Grafana substitutes its own `domain`
+        # SETTING there (default localhost), never the request Host — so the
+        # OAuth redirect_uri it registers went to http://localhost/grafana
+        # and Keycloak refused the callback.
+        root_url: '{{ include "bdp.platformBaseUrl" . }}/grafana'
         serve_from_sub_path: true
       security:
         allow_embedding: true
@@ -1025,14 +1029,15 @@ kube-prometheus-stack:
         client_id: grafana
         client_secret: $__env{GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET}
         scopes: "openid profile email"
-        # Browser-facing: same keycloak.<externalDomain> host the main
-        # ingress (templates/ingress.yaml) and bdp.keycloakExternalIssuer
-        # helper already use — NOT <domain>/auth/... (no such path exists).
-        auth_url: "https://keycloak.{{ .Values.global.externalDomain }}/realms/bdp/protocol/openid-connect/auth"
-        # Backchannel (token exchange + userinfo): in-cluster Keycloak
-        # service DNS, matching the bdp.keycloakInternalUrl helper.
-        token_url: "http://{{ .Release.Name }}-keycloak:80/realms/bdp/protocol/openid-connect/token"
-        api_url: "http://{{ .Release.Name }}-keycloak:80/realms/bdp/protocol/openid-connect/userinfo"
+        # Browser-facing: the IP-mode-aware helper — scheme://keycloak.<domain>
+        # normally, http://<ip>/auth in IP mode. The old inline template
+        # produced https://keycloak.<ip>/realms/... there (phantom host, wrong
+        # scheme, missing /auth) and every SSO login died ERR_INVALID_REDIRECT.
+        auth_url: '{{ include "bdp.keycloakBaseUrl" . }}/realms/bdp/protocol/openid-connect/auth'
+        # Backchannel (token exchange + userinfo): in-cluster Keycloak via the
+        # bdp.keycloakInternalUrl helper (FQDN, carries httpRelativePath).
+        token_url: '{{ include "bdp.keycloakInternalUrl" . }}/realms/bdp/protocol/openid-connect/token'
+        api_url: '{{ include "bdp.keycloakInternalUrl" . }}/realms/bdp/protocol/openid-connect/userinfo'
         # NOTE: the brief's literal snippet used 'bdp-admin', but this
         # codebase's actual realm role (BDP_ROLES in scripts/setup-server.js,
         # and SecurityConfig.java's ROLE_ prefix on the verbatim Keycloak role
