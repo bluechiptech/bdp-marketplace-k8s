@@ -534,7 +534,15 @@ serviceDefaults:
 
 services:
   bdp-service-registry:    { port: 7013, db: bdp_registry }
-  bdp-auth-service:        { port: 7001, db: bdp_auth }
+  bdp-auth-service:
+    port: 7001
+    db: bdp_auth
+    extraEnv:
+      # The /dashboard/users and /dashboard/roles manager drives Keycloak's
+      # Admin REST API; the service's built-in default is the VM deployment's
+      # localhost:8080, which on K8s produced Connection refused -> 500 on
+      # both pages. The in-cluster URL carries /auth (httpRelativePath).
+      BDP_KEYCLOAK_BASE_URL: '{{ include "bdp.keycloakInternalUrl" . }}'
   bdp-cluster-registry:    { port: 7018, db: bdp_cluster_registry }
   bdp-cluster-manager:
     port: 7002
