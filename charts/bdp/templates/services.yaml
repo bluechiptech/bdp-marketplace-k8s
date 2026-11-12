@@ -305,10 +305,23 @@ rules:
     verbs: [create, patch, update, delete]
   {{- /* Install-time Secrets (stable DB passwords, MinIO per-service S3 keys,
          minio-sftp-ssh) are server-side applied here. Without this every
-         install uses an ephemeral key and MinIO never mounts its secrets. */}}
+         install uses an ephemeral key and MinIO never mounts its secrets.
+         delete: a vendored monitoring bundle (Trino ships its scrape-auth
+         Secret beside its ServiceMonitor) is removed when monitoring is
+         disabled — without delete the credential lingers unscraped. */}}
   - apiGroups: [""]
     resources: [secrets]
-    verbs: [create, update, patch]
+    verbs: [create, update, patch, delete]
+  {{- /* MonitoringValues server-side applies (= PATCH) each tool's Grafana
+         dashboard ConfigMap here. Shipped without these verbs: on a fresh
+         k3s install every dashboard apply 403'd and was swallowed as a WARN
+         (observability wiring never fails a lifecycle op), so Grafana showed
+         only the stock mixin dashboards while ServiceMonitors — created via
+         chart values, not server-side apply — worked, masking it
+         (bdp47, 2026-11-11). */}}
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create, update, patch, delete]
   {{- /* CompanionPostgresProvisioner server-side applies a Secret + PVC +
          Deployment + Service per tool that bundles no database (Yatai, Feast,
          ZenML). Secrets and Services are covered above; PVC and Deployment
@@ -325,10 +338,14 @@ rules:
   - apiGroups: [apps]
     resources: [deployments]
     verbs: [create]
-  {{- /* ServiceMonitoringService verifies scraping by listing both CRDs. */}}
+  {{- /* ServiceMonitoringService verifies scraping by listing both CRDs;
+         MonitoringValues additionally server-side applies vendored static
+         ServiceMonitors for charts with no native one (Airflow, Trino) and
+         deletes them when monitoring is disabled — same 403-swallowed-as-WARN
+         failure mode as the dashboard ConfigMaps above. */}}
   - apiGroups: [monitoring.coreos.com]
     resources: [servicemonitors, podmonitors]
-    verbs: [get, list]
+    verbs: [get, list, watch, create, update, patch, delete]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

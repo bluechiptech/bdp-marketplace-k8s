@@ -45,6 +45,17 @@ spec:
               service:
                 name: bdp-ui
                 port: { number: 3000 }
+          # BentoML's auto-login hop (app/api/yatai-sso/route.ts) is a Next.js
+          # route, not a gateway API — but it lives under /api, so without
+          # this carve-out nginx's /api rule sends it to the gateway, which
+          # 401s it (bdp47, 2026-11-11). Azure never saw this because the UI
+          # was hit directly on :3000 there.
+          - path: /api/yatai-sso
+            pathType: Prefix
+            backend:
+              service:
+                name: bdp-ui
+                port: { number: 3000 }
           - path: /api
             pathType: Prefix
             backend:

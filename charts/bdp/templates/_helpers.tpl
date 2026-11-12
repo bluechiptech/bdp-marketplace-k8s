@@ -9,8 +9,22 @@
        same prefix or the seed job and every service's issuer URI 404.
        Namespace-qualified, because this URL also reaches TOOL pods in other
        namespaces (NiFi's OIDC discovery), and because service-manager treats
-       a ".svc" host as proof the address is pod-reachable cluster DNS. */ -}}
-http://{{ .Release.Name }}-keycloak.{{ .Release.Namespace }}.svc.cluster.local:80{{ .Values.keycloak.httpRelativePath | default "/" | trimSuffix "/" }}
+       a ".svc" host as proof the address is pod-reachable cluster DNS.
+
+       SUBCHART-SAFE on purpose: Grafana's grafana.ini entries in values.yaml
+       reference this helper, and the grafana subchart tpl-renders them in its
+       OWN scope, where .Values.keycloak does not exist -- a bare
+       .Values.keycloak.httpRelativePath nil-pointered every render of HEAD
+       (helm template/install both die). When the key is absent, fall back to
+       inferring the prefix from IP mode, which is the exact invariant the
+       fail-fast in ingress.yaml enforces on the parent values anyway. */ -}}
+{{- $relPath := "" -}}
+{{- if and .Values.keycloak .Values.keycloak.httpRelativePath -}}
+{{- $relPath = .Values.keycloak.httpRelativePath | trimSuffix "/" -}}
+{{- else if include "bdp.isIpMode" . -}}
+{{- $relPath = "/auth" -}}
+{{- end -}}
+http://{{ .Release.Name }}-keycloak.{{ .Release.Namespace }}.svc.cluster.local:80{{ $relPath }}
 {{- end -}}
 
 {{/*
