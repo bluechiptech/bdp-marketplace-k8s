@@ -893,6 +893,19 @@ kube-prometheus-stack:
   prometheus:
     prometheusSpec:
       retention: 15d
+      # Without these four, the operator defaults every selector to
+      # matchLabels: release: bdp — and no TOOL ServiceMonitor carries that
+      # label (upstream charts label with their own release: kafka, minio...;
+      # MonitoringValues' vendored ones with app.kubernetes.io/managed-by).
+      # Result on a fresh install: Prometheus scrapes only the platform
+      # stack, every tool dashboard reads "No data", and the per-service
+      # monitoring toggle can never reach targetUp (bdp47, 2026-11-12).
+      # false => selector {} => select every ServiceMonitor/PodMonitor in
+      # every namespace, which is the whole point of the monitoring feature.
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+      probeSelectorNilUsesHelmValues: false
       storageSpec:
         volumeClaimTemplate:
           spec:
@@ -1031,6 +1044,15 @@ kube-prometheus-stack:
         serve_from_sub_path: true
       security:
         allow_embedding: true
+        # Grafana's CSRF guard rejects cookie-authenticated POSTs ("origin
+        # not allowed", HTTP 403) whenever the browser's Origin host differs
+        # from the Host header Grafana receives. The gateway forwards the
+        # public host (BDP_GRAFANA_PUBLIC_HOST route filter), but any hop
+        # that misses it — an older gateway image, a direct ingress route —
+        # turns EVERY dashboard panel into "No data" while all GETs work
+        # (bdp47, 2026-11-12). Trusting the platform origin makes query
+        # POSTs independent of Host-forwarding details.
+        csrf_trusted_origins: '{{ .Values.global.externalDomain }}'
       auth.generic_oauth:
         enabled: true
         name: BDP SSO
