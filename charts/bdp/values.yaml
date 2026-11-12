@@ -592,7 +592,18 @@ services:
     extraEnv:
       BDP_TRINO_JDBC_URL: jdbc:trino://trino.bdp-services.svc.cluster.local:8080
       MINIO_ENDPOINT: http://minio.bdp-services.svc.cluster.local:9000
-  bdp-domain-manager:      { port: 7019, db: bdp_domain }
+  bdp-domain-manager:
+    port: 7019
+    db: bdp_domain
+    # KeycloakGroupValidator drives the Keycloak ADMIN REST API on domain
+    # create; with no config it defaults to localhost:8080 / bdp-admin-svc and
+    # every domain create 500s off-cluster. Inject via SPRING_APPLICATION_JSON
+    # so the properties bind on the shipped image regardless of its
+    # application.yml -- no image rebuild needed. base-url is the in-cluster
+    # Keycloak admin endpoint (carries /auth in IP mode, same helper commonEnv
+    # uses for the issuer); the admin-svc client secret matches bdp-auth-service.
+    extraEnv:
+      SPRING_APPLICATION_JSON: '{"bdp.keycloak.base-url":"{{ include "bdp.keycloakInternalUrl" . }}","bdp.keycloak.realm":"bdp","bdp.keycloak.admin-client-id":"bdp-admin-svc","bdp.keycloak.admin-client-secret":"bdp-admin-svc-secret"}'
   bdp-security-policies:   { port: 7010, db: bdp_security }
   bdp-key-manager:         { port: 7020, db: bdp_keymanager }
   bdp-oracle-migration:
