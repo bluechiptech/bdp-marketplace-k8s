@@ -99,7 +99,7 @@ global:
       bdp-ui:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-ui
-        digest: sha256:1ac05b3a5bb02097a418785b4e3f42807fa7b32372853cb9fb3b94b419fb3550
+        digest: sha256:103f072323bcb6a8ec53cfe85be2e50f06711ca96108f890e703ec0812f97c8d
       seed:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-seed
