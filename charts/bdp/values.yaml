@@ -19,7 +19,7 @@ global:
       bdp-catalog:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-catalog
-        digest: sha256:79c85018a7bda344c363fd1c1ac5a7562863d22365047b054df59526c57b491d
+        digest: sha256:0c13e08b194354c0968c93d48428c2ff306517939b4cdecf5fc57b5b6da59d54
       bdp-cloud-providers:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-cloud-providers
@@ -79,11 +79,11 @@ global:
       bdp-service-manager:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-service-manager
-        digest: sha256:b337e27da651d7e0cb9535142122cdcfa996fc650a0aefbfecbeb37bb6ed33d1
+        digest: sha256:5ba2bf0aed88c6813102a8daa09435ae5b9faec9ecc56da965fef1de47c203a1
       bdp-service-registry:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-service-registry
-        digest: sha256:cd355b2358cfbd109bb863bfb984619e969097ebc34770aab0a77d0301c47094
+        digest: sha256:4ee1d552858a069b26b1c679cad46df65f38f08d9f6a067875baf136ee0c300e
       bdp-sql-engine:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-sql-engine
@@ -99,7 +99,7 @@ global:
       bdp-ui:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-ui
-        digest: sha256:103f072323bcb6a8ec53cfe85be2e50f06711ca96108f890e703ec0812f97c8d
+        digest: sha256:587933018f61cf963e6d3bf1dec48a8fb06bb1ddc19c90cbd853b432ee30dda7
       seed:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-seed
@@ -592,6 +592,10 @@ services:
     extraEnv:
       BDP_TRINO_JDBC_URL: jdbc:trino://trino.bdp-services.svc.cluster.local:8080
       MINIO_ENDPOINT: http://minio.bdp-services.svc.cluster.local:9000
+      # Grant/revoke audit events publish to bdp-security-events; without
+      # this the KafkaAuditPublisher targets its localhost:9092 default and
+      # only logs warnings.
+      KAFKA_BOOTSTRAP_SERVERS: kafka.bdp-services.svc.cluster.local:9092
   bdp-domain-manager:
     port: 7019
     db: bdp_domain
