@@ -83,7 +83,7 @@ global:
       bdp-service-registry:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-service-registry
-        digest: sha256:4ee1d552858a069b26b1c679cad46df65f38f08d9f6a067875baf136ee0c300e
+        digest: sha256:2e08423ac40382e006c48df5f94052b80e922890c3687a01221f843415244fbf
       bdp-sql-engine:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-sql-engine
