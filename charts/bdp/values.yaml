@@ -19,7 +19,7 @@ global:
       bdp-catalog:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-catalog
-        digest: sha256:6c038004be432e0987b9900506db50144adde7d9313fd107401ab8035536a40f
+        digest: sha256:8d2926f3ece76e75f22af6e33205ff12e2dddbd7667c2ea89a8b32e9a0be9ee2
       bdp-cloud-providers:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-cloud-providers
