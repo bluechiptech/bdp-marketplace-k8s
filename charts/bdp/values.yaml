@@ -19,7 +19,7 @@ global:
       bdp-catalog:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-catalog
-        digest: sha256:0721dba24d53148353ebda680453dd44d1aae5ca392382e768050ab0fd6c3338
+        digest: sha256:0c98127949dc196bd79c27b47a43b62bec1597dfb1c1a02dc3203f89b3f0ce4d
       bdp-cloud-providers:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-cloud-providers
@@ -39,7 +39,7 @@ global:
       bdp-domain-manager:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-domain-manager
-        digest: sha256:273c1e39eaeb971fa02c16d23c1be1c2f3fdf198068299ec986045524a59296d
+        digest: sha256:1ee98f10e08545c85f438b5039f4809c99b8f03282426f4ddf8b750ce60ad5b6
       bdp-gateway:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-gateway
