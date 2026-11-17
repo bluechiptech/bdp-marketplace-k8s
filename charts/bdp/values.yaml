@@ -582,6 +582,11 @@ services:
       # so tool UIs go to NodePorts on the address itself (services.yaml runs
       # extraEnv through tpl precisely so this can follow bdp.isIpMode).
       BDP_UI_ACCESS_MODE: '{{ if include "bdp.isIpMode" . }}nodeport{{ else }}ingress{{ end }}'
+      # Follows global.accessControlMode: in ranger mode, TrinoValues renders
+      # the Ranger access-control block into Trino installs/upgrades. Without
+      # this a BDP-driven Trino upgrade would silently drop enforcement on a
+      # Ranger cluster.
+      BDP_TRINO_RANGER_ENABLED: '{{ eq (.Values.global.accessControlMode | default "file") "ranger" }}'
   bdp-storage-manager:
     port: 7005
     db: bdp_storage
