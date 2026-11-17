@@ -295,6 +295,14 @@ global:
   bdpImageTag: "1.0.7"
   # Namespace installed data tools (and their per-tool UI Ingresses) live in.
   toolsNamespace: bdp-services
+  # How the catalog enforces column masking on Trino.
+  #   file   - generated rules.json synced into the coordinator ConfigMap
+  #   ranger - catalog projects governance state into Apache Ranger policies
+  #            (requires the ranger catalogue service installed, Trino >= 466,
+  #            and secret bdp-ranger-admin/password in the platform namespace)
+  # An overlay flips this per environment; without it a platform upgrade would
+  # silently revert a Ranger-enforced cluster to file mode.
+  accessControlMode: file
   # Domain the customer points at the ingress. Everything derives from it:
   # UI https://<domain>, API https://<domain>/api, Keycloak https://keycloak.<domain>
   externalDomain: bdp.example.com
@@ -596,6 +604,13 @@ services:
       # this the KafkaAuditPublisher targets its localhost:9092 default and
       # only logs warnings.
       KAFKA_BOOTSTRAP_SERVERS: kafka.bdp-services.svc.cluster.local:9092
+      # file | ranger — follows global.accessControlMode so the enforcement
+      # mode survives platform upgrades instead of living in kubectl-set env.
+      BDP_ACCESS_CONTROL_MODE: '{{ .Values.global.accessControlMode | default "file" }}'
+    secretEnv:
+      # Only read when BDP_ACCESS_CONTROL_MODE=ranger; optional so file-mode
+      # clusters start without the secret existing.
+      RANGER_ADMIN_PASSWORD: { name: bdp-ranger-admin, key: password }
   bdp-domain-manager:
     port: 7019
     db: bdp_domain

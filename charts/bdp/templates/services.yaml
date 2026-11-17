@@ -103,6 +103,18 @@ spec:
             - name: {{ $k }}
               value: {{ tpl ($v | toString) $root | quote }}
             {{- end }}
+            {{- /* Secret-backed env vars. optional: true so a service that
+                   only uses the secret in one deployment mode (e.g. the
+                   catalog's Ranger admin password) still starts where the
+                   secret does not exist. */}}
+            {{- range $k, $ref := ($svc.secretEnv | default dict) }}
+            - name: {{ $k }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $ref.name }}
+                  key: {{ $ref.key }}
+                  optional: true
+            {{- end }}
           resources:
             {{- toYaml $root.Values.serviceDefaults.resources | nindent 12 }}
           readinessProbe:
