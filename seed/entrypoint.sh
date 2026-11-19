@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # In-cluster bootstrap: waits for Keycloak + Postgres, seeds realm/clients/
-# users/databases, randomizes seeded passwords, stores them in a Secret.
+# users/databases. Passwords are randomized and stored in the bdp-credentials
+# Secret on the FIRST run only; later runs keep whatever is live (delete the
+# secret to force a rotation).
 # Required env (injected by the chart):
 #   KEYCLOAK_URL, KEYCLOAK_ADMIN, KEYCLOAK_ADMIN_PASSWORD,
 #   POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD,
@@ -14,8 +16,35 @@ until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" >/dev/null 2>&1; do sle
 
 node /seed/setup-server.js
 
-BDP_ADMIN_PASS=$(openssl rand -hex 12)
-ENGINEER_PASS=$(openssl rand -hex 12)
+# Credential-neutral re-runs: when bdp-credentials already holds both
+# passwords, keep them — rotating on every upgrade breaks saved logins and
+# mails a fresh live credential each time. New passwords are generated only
+# when the secret is missing or incomplete (first install, or an operator
+# deleted it to force a rotation).
+SA=/var/run/secrets/kubernetes.io/serviceaccount
+KAPI="https://kubernetes.default.svc"
+TOKEN=$(cat $SA/token)
+existing=$(curl -s --cacert $SA/ca.crt -H "Authorization: Bearer $TOKEN" \
+  "$KAPI/api/v1/namespaces/$NAMESPACE/secrets/bdp-credentials" || true)
+BDP_ADMIN_PASS=$(printf '%s' "$existing" | jq -r '.data["admin-password"] // empty' | base64 -d 2>/dev/null || true)
+ENGINEER_PASS=$(printf '%s' "$existing" | jq -r '.data["engineer-password"] // empty' | base64 -d 2>/dev/null || true)
+if [ -n "$BDP_ADMIN_PASS" ] && [ -n "$ENGINEER_PASS" ]; then
+  echo "bdp-credentials exists -- keeping the published passwords (no rotation)"
+  ROTATED=false
+else
+  BDP_ADMIN_PASS=$(openssl rand -hex 12)
+  ENGINEER_PASS=$(openssl rand -hex 12)
+  ROTATED=true
+fi
+
+# Nothing below is needed on a credential-neutral re-run: setup-server.js no
+# longer touches an existing user's password, so whatever is live in Keycloak
+# (the published pair, or one an operator changed) stays. To force a rotation,
+# delete the bdp-credentials secret and re-run the seed.
+if [ "$ROTATED" = false ]; then
+  echo "Seed complete (credentials unchanged). Retrieve them: kubectl get secret bdp-credentials -n $NAMESPACE"
+  exit 0
+fi
 
 KC_TOKEN=$(curl -s -X POST "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" \
   -d client_id=admin-cli -d "username=$KEYCLOAK_ADMIN" \
@@ -39,10 +68,8 @@ set_pass() {
 set_pass admin    "$BDP_ADMIN_PASS"
 set_pass engineer "$ENGINEER_PASS"
 
-# Publish generated credentials as a Secret via the API (SA token mounted).
-SA=/var/run/secrets/kubernetes.io/serviceaccount
-KAPI="https://kubernetes.default.svc"
-TOKEN=$(cat $SA/token)
+# Publish the newly generated credentials as a Secret via the API
+# (SA, KAPI and TOKEN were set during the reuse check above).
 b64() { printf '%s' "$1" | base64 | tr -d '\n'; }
 BODY="{
     \"apiVersion\":\"v1\",\"kind\":\"Secret\",
@@ -51,8 +78,9 @@ BODY="{
       \"admin-password\":\"$(b64 "$BDP_ADMIN_PASS")\",
       \"engineer-password\":\"$(b64 "$ENGINEER_PASS")\"
     }}"
-# Every run resets the Keycloak passwords, so the secret must ALWAYS be
-# brought in sync — create it, or patch it when it already exists.
+# A rotation just reset the Keycloak passwords, so the secret must be
+# brought in sync — create it, or patch it when it already exists
+# (exists-but-incomplete is how a forced rotation arrives here).
 curl -sf --cacert $SA/ca.crt -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" -X POST \
   "$KAPI/api/v1/namespaces/$NAMESPACE/secrets" -d "$BODY" >/dev/null \
