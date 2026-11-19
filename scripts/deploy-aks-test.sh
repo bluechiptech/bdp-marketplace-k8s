@@ -97,14 +97,18 @@ verify() {
   kubectl get pods -n "$NS" --no-headers \
     | awk '$3!="Running" && $3!="Completed" {print "  UNHEALTHY: "$1" "$3}'
 
-  # Keycloak in production mode runs a Quarkus build on first start, so it sits
-  # 0/1 for a minute or two before going ready. That is normal, not a hang.
-  log "Waiting for Keycloak (production mode builds on first start)"
-  kubectl wait --for=condition=ready pod/bdp-keycloak-0 -n "$NS" --timeout=300s
+  # Keycloak runs a Quarkus build on first start, so it sits 0/1 for a
+  # minute or two before going ready. That is normal, not a hang.
+  log "Waiting for Keycloak (builds on first start)"
+  kubectl wait --for=condition=ready pod -n "$NS" \
+    -l app.kubernetes.io/name=keycloak,app.kubernetes.io/part-of=bdp --timeout=300s
 
   log "Keycloak is genuinely in production mode"
-  kubectl exec -n "$NS" bdp-keycloak-0 -- env \
-    | grep -E 'KEYCLOAK_PRODUCTION|KEYCLOAK_PROXY|KC_HOSTNAME_URL' | sed 's/^/  /'
+  kc_pod=$(kubectl get pod -n "$NS" \
+    -l app.kubernetes.io/name=keycloak,app.kubernetes.io/part-of=bdp \
+    -o jsonpath='{.items[0].metadata.name}')
+  kubectl exec -n "$NS" "$kc_pod" -- env \
+    | grep -E 'KC_HOSTNAME|KC_PROXY_HEADERS|KC_HTTP_ENABLED' | sed 's/^/  /'
 
   log "Endpoints"
   # 307 = UI redirecting to login, 401 = API alive and demanding a token,

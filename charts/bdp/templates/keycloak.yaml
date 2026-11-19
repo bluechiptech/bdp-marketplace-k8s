@@ -1,0 +1,169 @@
+{{- /*
+First-party Keycloak. Replaces the vendored Bitnami subchart (frozen at
+24.0.5 — Bitnami's free images stopped updating in 2025, so it could never
+be patched). Runs the OFFICIAL quay.io/keycloak/keycloak image, mirrored
+into the platform registry; taking a Keycloak security release is now just
+a digest bump on global.azure.images.keycloak.
+
+Contract kept from the subchart, so nothing else changes:
+  - Service {{ .Release.Name }}-keycloak on port 80 (ingress + internal URL)
+  - Secret  {{ .Release.Name }}-keycloak, key admin-password (seed job)
+  - Serves under keycloak.httpRelativePath ("/auth" in IP mode)
+
+Deployment, not StatefulSet: with the external postgres and a local cache
+Keycloak holds no state on disk. On upgrade from the subchart helm removes
+the old StatefulSet and creates this; strategy Recreate guarantees the old
+24.0.5 pod is gone before the new pod runs its one-way schema migration.
+*/ -}}
+{{- if .Values.keycloak.enabled }}
+{{- $relPath := .Values.keycloak.httpRelativePath | default "/" | trimSuffix "/" }}
+{{- /* Generated once, then preserved: an upgrade re-reads the live secret so
+       the admin password never rotates behind the seed job's back. */}}
+{{- $secretName := printf "%s-keycloak" .Release.Name }}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $secretName }}
+{{- $adminPass := .Values.keycloak.auth.adminPassword | default (randAlphaNum 16) }}
+{{- if and $existing $existing.data (index $existing.data "admin-password") }}
+{{- $adminPass = index $existing.data "admin-password" | b64dec }}
+{{- end }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secretName }}
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: bdp
+type: Opaque
+data:
+  admin-password: {{ $adminPass | b64enc }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: bdp
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/part-of: bdp
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # The official image runs as uid 1000 with group 0 owning its dirs.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 0
+        fsGroup: 0
+      containers:
+        - name: keycloak
+          image: {{ include "bdp.image" (dict "root" . "name" "keycloak") }}
+          # Image entrypoint is kc.sh. Plain `start` (re)builds at startup;
+          # the memory limit below covers the Quarkus augmentation burst.
+          args: ["start"]
+          env:
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_HTTP_PORT
+              value: "8080"
+            - name: KC_HTTP_RELATIVE_PATH
+              value: {{ .Values.keycloak.httpRelativePath | default "/" | quote }}
+            # TLS terminates at the ingress (the old chart's proxy=edge).
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            # Hostname v2: one URL Keycloak bakes into issuers, discovery
+            # documents and redirects. IP-mode aware via the helper.
+            - name: KC_HOSTNAME
+              value: {{ include "bdp.keycloakBaseUrl" . | quote }}
+            # Single replica; local cache avoids JGroups discovery wiring.
+            # Must be revisited before replicas can ever exceed 1.
+            - name: KC_CACHE
+              value: local
+            # health endpoints on the management port (9000)
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL_HOST
+              value: {{ .Values.keycloak.database.host | quote }}
+            - name: KC_DB_URL_PORT
+              value: {{ .Values.keycloak.database.port | quote }}
+            - name: KC_DB_URL_DATABASE
+              value: {{ .Values.keycloak.database.name | quote }}
+            - name: KC_DB_USERNAME
+              value: {{ .Values.keycloak.database.user | quote }}
+            - name: KC_DB_PASSWORD
+              value: {{ .Values.keycloak.database.password | quote }}
+            # Creates the initial master admin the seed job logs in with.
+            # Only read when the database is empty; ignored ever after.
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: {{ .Values.keycloak.auth.adminUser | quote }}
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: admin-password
+            {{- range .Values.keycloak.extraEnvVars }}
+            - name: {{ .name }}
+              value: {{ tpl .value $ | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 9000
+          # The management interface inherits http-relative-path, so health
+          # lives under the same prefix. Startup covers the one-off schema
+          # migration an image upgrade triggers (minutes, not seconds).
+          startupProbe:
+            httpGet:
+              path: {{ $relPath }}/health/started
+              port: management
+            periodSeconds: 5
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: {{ $relPath }}/health/ready
+              port: management
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: {{ $relPath }}/health/live
+              port: management
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.keycloak.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: bdp
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  selector:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

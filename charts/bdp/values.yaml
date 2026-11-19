@@ -108,14 +108,15 @@ global:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-seed
         digest: sha256:f2a6949d99831ae8b5bb50287ca0754fc1d57935a0361d5e2e2a676c0026ab91
+      # OFFICIAL Keycloak image (quay.io/keycloak/keycloak:26.8.2-3 mirrored
+      # into ACR — digest is content-addressed, so it matches quay's).
+      # Patching Keycloak from here on = az acr import the new tag + bump
+      # this digest. The frozen Bitnami 24.0.5 image and its
+      # init-quarkus-directory container are gone (templates/keycloak.yaml).
       keycloak:
         registry: bdpmarketplace.azurecr.io
         image: bdp/keycloak
-        digest: sha256:4879f37d618c7a2bc4c3cdf502e88dbd3d4aec7a867f77608a04a7fd6c1078f0
-      init-quarkus-directory:
-        registry: bdpmarketplace.azurecr.io
-        image: bdp/keycloak
-        digest: sha256:4879f37d618c7a2bc4c3cdf502e88dbd3d4aec7a867f77608a04a7fd6c1078f0
+        digest: sha256:7e66a96e4739239070aeaf72e4c5decf0f7f682cfc725b9f7ea2b336eaba38b3
       postgresql:
         registry: bdpmarketplace.azurecr.io
         image: bdp/postgresql
@@ -471,59 +472,39 @@ redis:
       # parameter target (Task F1).
       size: 8Gi
 
+# First-party Keycloak (templates/keycloak.yaml) on the OFFICIAL
+# quay.io/keycloak/keycloak image — the vendored Bitnami subchart (frozen,
+# unpatchable 24.0.5) is gone. The image reference lives in
+# global.azure.images.keycloak like every other container. The hostname,
+# proxy and production-mode concerns the old subchart needed values for are
+# baked into the template (KC_HOSTNAME via bdp.keycloakBaseUrl, which is
+# IP-mode and TLS-scheme aware; KC_PROXY_HEADERS=xforwarded; `start`).
 keycloak:
   enabled: true
-  image:
-    registry: bdpmarketplace.azurecr.io
-    repository: bdp/keycloak
-    digest: sha256:4879f37d618c7a2bc4c3cdf502e88dbd3d4aec7a867f77608a04a7fd6c1078f0
   auth:
     adminUser: admin
-    adminPassword: ""           # empty -> chart-generated
-  proxy: edge
-  # Production mode. The chart's default is false, which starts Keycloak with
-  # `start-dev`: dev-mode caching (so no clustering or session replication) and
-  # hostname checks disabled. Keycloak's own documentation is explicit that
-  # start-dev must not be used in production, and it shipped that way here.
-  #
-  # Requires the hostname below and TLS terminated upstream -- `proxy: edge`
-  # above already says that is the arrangement.
-  production: true
+    adminPassword: ""           # empty -> generated at install, kept across upgrades
+  # "/" in domain mode; the installer sets "/auth" in IP mode, where Keycloak
+  # is a path on the single address instead of its own subdomain.
   httpRelativePath: "/"
-  # Keycloak has to know the URL browsers reach it on. It bakes that into every
-  # token issuer, discovery document and redirect, so getting it wrong produces
-  # a login that appears to work and then fails validation in every service.
-  #
-  # The subchart only sets this when its OWN ingress is enabled, and it is not:
-  # the umbrella's Ingress routes keycloak.<externalDomain> to this service
-  # instead. So it is set explicitly here.
-  #
-  # The scheme follows whether a certificate exists. With global.tlsSecretName
-  # set the ingress serves HTTPS and Keycloak must advertise https; without one
-  # it serves plain HTTP, and advertising https would make every redirect fail.
-  # bdp.keycloakBaseUrl is IP-mode aware: scheme://keycloak.<domain> normally,
-  # scheme://<ip>/auth when externalDomain is a bare IP. The old inline
-  # template here produced http://keycloak.<ip> in IP mode, which Keycloak
-  # rejects with a URISyntaxException 500 on every realm endpoint.
   extraEnvVars:
-    - name: KC_HOSTNAME_URL
-      value: '{{ include "bdp.keycloakBaseUrl" . }}'
-    - name: KC_HOSTNAME_ADMIN_URL
-      value: '{{ include "bdp.keycloakBaseUrl" . }}'
-  # The chart's default "small" resources preset OOM-kills (exit 137) the
-  # kc.sh build/augmentation phase — give Keycloak real memory.
+    # Java4Shell (CVE-2026-114938) mitigation: pre-auth RCE via the JDK's
+    # AVX-512 Base64 decoder. 26.8.2-3 bundles a fixed JDK (21.0.13.1), so
+    # this is belt-and-braces; harmless there, load-bearing on any older
+    # image a cluster might still be pinned to.
+    - name: JAVA_OPTS_APPEND
+      value: "-XX:-UseBASE64Intrinsics"
+  # kc.sh's build/augmentation phase OOM-kills (exit 137) on small limits —
+  # give Keycloak real memory. 2Gi still OOMs the Quarkus augmentation burst.
   resources:
     requests: { cpu: 250m, memory: 1Gi }
-    limits: { memory: 3Gi }   # 2Gi still OOMs the Quarkus augmentation burst
-  # Share the platform postgres instead of the chart's embedded one — the
-  # embedded subchart renders the same resource names and collides.
-  postgresql:
-    enabled: false
-  externalDatabase:
+    limits: { memory: 3Gi }
+  # Shares the platform postgres (bdp-postgres initdb creates this DB).
+  database:
     host: bdp-postgres
     port: 5432
+    name: keycloak
     user: keycloak
-    database: keycloak
     password: keycloak
 
 ui:

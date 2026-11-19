@@ -112,14 +112,12 @@ global:
         registry: ghcr.io/bluechiptech
         image: bdp/bdp-seed
         digest: sha256:547d5a70cfaae4c930b5afbdd0412a4653a81164d80d8830994337c7969beecd
+      # Official quay.io/keycloak/keycloak:26.8.2-3 (see values.yaml). The
+      # init-quarkus-directory container existed only for the Bitnami image.
       keycloak:
         registry: ghcr.io/bluechiptech
         image: bdp/keycloak
-        digest: sha256:4879f37d618c7a2bc4c3cdf502e88dbd3d4aec7a867f77608a04a7fd6c1078f0
-      init-quarkus-directory:
-        registry: ghcr.io/bluechiptech
-        image: bdp/keycloak
-        digest: sha256:4879f37d618c7a2bc4c3cdf502e88dbd3d4aec7a867f77608a04a7fd6c1078f0
+        digest: sha256:7e66a96e4739239070aeaf72e4c5decf0f7f682cfc725b9f7ea2b336eaba38b3
       postgresql:
         registry: ghcr.io/bluechiptech
         image: bdp/postgresql
