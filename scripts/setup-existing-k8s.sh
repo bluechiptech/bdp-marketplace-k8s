@@ -118,27 +118,35 @@ RELEASE="${BDP_RELEASE:-bdp}"
 PULL_SECRET="${BDP_PULL_SECRET:-bdp-registry-cred}"
 
 # ── Post-install notification (step 6b) ──────────────────────────────
-# Where to email the sign-in details once the install succeeds. EMPTY = the
-# feature is off and the script behaves exactly as it did without it.
+# Who gets the sign-in mail once the install succeeds. EMPTY = the feature
+# is off. Configure it once per node with
+#     ./setup-existing-k8s.sh --configure-mail
+# which writes MAIL_CONFIG_FILE; every later install/upgrade reads it.
+# Precedence: BDP_* environment variables > the config file > defaults.
+# There is deliberately NO default recipient: an unconfigured node sends
+# nothing, instead of mailing live credentials to a baked-in address.
 #
 # Verified working with Brevo's SMTP relay, which needs no mail server on the
 # node -- curl speaks SMTP directly. Sending straight from the node instead is
 # NOT viable: it has no PTR record, and an SPF of "-all" that authorises only
 # the domain's real mail provider means receivers reject it.
-NOTIFY_EMAIL="${BDP_NOTIFY_EMAIL:-agbadeyanka@bluechiptech.biz}"
-MAIL_HOST="${BDP_MAIL_HOST:-smtp-relay.brevo.com}"
-MAIL_PORT="${BDP_MAIL_PORT:-587}"
-MAIL_USER="${BDP_MAIL_USER:-9cefdf001@smtp-brevo.com}"
-MAIL_PASSWORD="${BDP_MAIL_PASSWORD:-}"
-MAIL_FROM="${BDP_MAIL_FROM:-Support@bluechiptech.biz}"
+MAIL_CONFIG_FILE="${BDP_MAIL_CONFIG:-$HOME/.bdp-mail.env}"
+# shellcheck disable=SC1090
+[[ -f "$MAIL_CONFIG_FILE" ]] && . "$MAIL_CONFIG_FILE"
+# Comma-separated recipient list; BDP_NOTIFY_EMAIL kept as a legacy alias.
+NOTIFY_EMAILS="${BDP_NOTIFY_EMAILS:-${BDP_NOTIFY_EMAIL:-${NOTIFY_EMAILS:-}}}"
+MAIL_HOST="${BDP_MAIL_HOST:-${MAIL_HOST:-smtp-relay.brevo.com}}"
+MAIL_PORT="${BDP_MAIL_PORT:-${MAIL_PORT:-587}}"
+MAIL_USER="${BDP_MAIL_USER:-${MAIL_USER:-}}"
+MAIL_PASSWORD="${BDP_MAIL_PASSWORD:-${MAIL_PASSWORD:-}}"
+MAIL_FROM="${BDP_MAIL_FROM:-${MAIL_FROM:-Support@bluechiptech.biz}}"
 
-# Whether the message carries the actual passwords. The seed generates a fresh
-# random pair on EVERY helm upgrade, so with this on, each upgrade mails a new
-# live credential that then sits in a mailbox indefinitely. Off, the message
-# says the platform is ready and names the secret to read. Turning it on is
-# reasonable once the seed marks the password temporary (Keycloak's
-# UPDATE_PASSWORD required action), which makes the mailed one single-use.
-NOTIFY_INCLUDE_PASSWORDS="${BDP_NOTIFY_INCLUDE_PASSWORDS:-true}"
+# Whether the message carries the actual passwords. The mail goes out only
+# when a FRESH install completes (upgrades keep the existing passwords and
+# send nothing), so at most one live credential ever sits in a mailbox per
+# node. Off, the message says the platform is ready and names the secret to
+# read -- the safer choice when the mailbox is shared.
+NOTIFY_INCLUDE_PASSWORDS="${BDP_NOTIFY_INCLUDE_PASSWORDS:-${NOTIFY_INCLUDE_PASSWORDS:-true}}"
 
 # Pinned versions of the two things this script may install itself.
 CERT_MANAGER_CRDS="${BDP_CERT_MANAGER_CRDS:-v1.15.3}"
@@ -164,6 +172,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHART_DIR="${BDP_CHART_DIR:-$HERE/../charts/bdp}"
 VALUES_FILE="${BDP_VALUES_FILE:-$HOME/pull-secrets.yaml}"
 KEYCLOAK_HOST=""            # set once DOMAIN is validated; empty in IP mode
+FRESH_INSTALL=true          # step4c flips it on the upgrade path; step6b mails only when fresh
 # IP MODE. True when DOMAIN is a bare IPv4 address instead of a hostname, which
 # is how you install on a network with no DNS at all. The chart detects the same
 # thing from global.externalDomain and moves Keycloak from its own subdomain to
@@ -825,7 +834,8 @@ step4c_install() {
     if helm history "$RELEASE" -n "$NAMESPACE" -o json 2>/dev/null \
          | grep -Eq '"status":[[:space:]]*"(deployed|superseded)"'; then
       info "release $RELEASE exists -- upgrading"
-      warn "every upgrade re-runs the seed job, which ROTATES the admin/engineer passwords"
+      info "the seed re-runs but keeps the existing passwords (delete the bdp-credentials secret first to force a rotation)"
+      FRESH_INSTALL=false
       helm upgrade "${args[@]}" 2>"$helm_err" || rc=$?
     else
       warn "release $RELEASE exists but no revision of it ever deployed (a previous
@@ -1176,11 +1186,31 @@ step6_credentials() {
 # install into a failed one. Every failure path here warns and returns 0.
 step6b_notify() {
   [[ "$DRY_RUN" == 1 ]] && return 0
-  [[ -n "$NOTIFY_EMAIL" ]] || return 0
+  if [[ "$FRESH_INSTALL" != true ]]; then
+    info "upgrade -- passwords unchanged, no mail sent"
+    return 0
+  fi
+  if [[ -z "$NOTIFY_EMAILS" ]]; then
+    info "no mail recipients configured -- skipping step 6b (set them with: $0 --configure-mail)"
+    return 0
+  fi
   log "Step 6b - emailing the sign-in details"
 
+  # NOTIFY_EMAILS is a comma-separated list; build one --mail-rcpt per address.
+  local -a rcpt_args=()
+  local addr to_header=""
+  local IFS=','
+  for addr in $NOTIFY_EMAILS; do
+    addr="${addr//[[:space:]]/}"
+    [[ -n "$addr" ]] || continue
+    rcpt_args+=(--mail-rcpt "$addr")
+    to_header+="${to_header:+, }<$addr>"
+  done
+  unset IFS
+  [[ ${#rcpt_args[@]} -gt 0 ]] || return 0
+
   if [[ -z "$MAIL_USER" || -z "$MAIL_PASSWORD" ]]; then
-    warn "NOTIFY_EMAIL is set but MAIL_USER/MAIL_PASSWORD are not -- skipping the email."
+    warn "recipients are set but MAIL_USER/MAIL_PASSWORD are not -- skipping the email."
     return 0
   fi
   if [[ -z "${ADMIN_PASSWORD:-}" ]]; then
@@ -1205,8 +1235,8 @@ step6b_notify() {
   admin     $ADMIN_PASSWORD
   engineer  $ENGINEER_PASSWORD
 
-Change both passwords after your first sign-in. Note that every platform
-upgrade regenerates them, so these stop working once an upgrade runs."
+Change both passwords after your first sign-in. They stay valid across
+platform upgrades."
   else
     body="Your BDP platform is ready at $PLATFORM_URL
 
@@ -1218,7 +1248,7 @@ cluster. An operator with cluster access can read them with:
 
   cat > "$msg" <<EOM
 From: BDP Platform <$MAIL_FROM>
-To: <$NOTIFY_EMAIL>
+To: $to_header
 Subject: Your BDP platform is ready - $DOMAIN
 Date: $(date -R)
 Message-ID: <bdp-install-$(date +%s)@${DOMAIN}>
@@ -1231,16 +1261,16 @@ Installed $(date -u '+%Y-%m-%d %H:%M UTC') on $(hostname).
 EOM
 
   if curl -sS -K "$cfg" --url "smtp://$MAIL_HOST:$MAIL_PORT" --ssl-reqd \
-       --mail-from "$MAIL_FROM" --mail-rcpt "$NOTIFY_EMAIL" \
+       --mail-from "$MAIL_FROM" "${rcpt_args[@]}" \
        --upload-file "$msg" --max-time 60 >/dev/null 2>&1; then
-    info "sent to $NOTIFY_EMAIL via $MAIL_HOST"
+    info "sent to $NOTIFY_EMAILS via $MAIL_HOST"
     # A bare `[[ ]] && info` here would return 1 when false, and under set -e
     # that aborts the function before the relay password is shredded below.
     if [[ "$NOTIFY_INCLUDE_PASSWORDS" == true ]]; then
       info "the message contains live passwords -- it is as sensitive as the secret"
     fi
   else
-    warn "could not send to $NOTIFY_EMAIL via $MAIL_HOST:$MAIL_PORT.
+    warn "could not send to $NOTIFY_EMAILS via $MAIL_HOST:$MAIL_PORT.
    The install itself is fine -- the credentials are above and in the
    bdp-credentials secret. Re-check MAIL_USER/MAIL_PASSWORD and that the
    node can reach the relay on port $MAIL_PORT."
@@ -1290,6 +1320,63 @@ EOF
 EOF
 }
 
+# ── --configure-mail: interactive setup of who gets install mail ─────
+# Writes MAIL_CONFIG_FILE (mode 600) and exits; installs never prompt.
+# Current values (file or env) are offered as defaults, so re-running it
+# edits the existing configuration rather than starting over.
+configure_mail() {
+  echo "BDP install-mail setup -- writes $MAIL_CONFIG_FILE"
+  echo "Recipients get the sign-in mail once, when a fresh install completes."
+  echo "Upgrades keep the existing passwords and send nothing."
+  echo
+
+  [[ -t 0 ]] || die "--configure-mail is interactive; run it from a terminal"
+
+  local in_rcpt in_host in_port in_user in_pass in_from in_incl
+  printf 'Recipients, comma-separated, "none" to disable [%s]: ' "${NOTIFY_EMAILS:-none}"
+  read -r in_rcpt
+  if [[ -z "$in_rcpt" ]]; then
+    in_rcpt="$NOTIFY_EMAILS"          # Enter keeps the current list
+  elif [[ "$in_rcpt" == none ]]; then
+    in_rcpt=""                        # "none" turns install mail off
+  fi
+  printf 'SMTP relay host [%s]: ' "$MAIL_HOST";            read -r in_host
+  printf 'SMTP relay port [%s]: ' "$MAIL_PORT";            read -r in_port
+  printf 'SMTP relay user [%s]: ' "${MAIL_USER:-unset}";   read -r in_user
+  printf 'SMTP relay password [kept if empty]: ';          read -rs in_pass; echo
+  printf 'From address [%s]: ' "$MAIL_FROM";               read -r in_from
+  printf 'Include passwords in the mail, true/false [%s]: ' "$NOTIFY_INCLUDE_PASSWORDS"
+  read -r in_incl
+
+  NOTIFY_EMAILS="${in_rcpt}"
+  MAIL_HOST="${in_host:-$MAIL_HOST}"
+  MAIL_PORT="${in_port:-$MAIL_PORT}"
+  MAIL_USER="${in_user:-$MAIL_USER}"
+  MAIL_PASSWORD="${in_pass:-$MAIL_PASSWORD}"
+  MAIL_FROM="${in_from:-$MAIL_FROM}"
+  NOTIFY_INCLUDE_PASSWORDS="${in_incl:-$NOTIFY_INCLUDE_PASSWORDS}"
+
+  # %q keeps the file sourcable whatever characters the password holds.
+  umask 077
+  {
+    echo "# BDP install-mail settings -- read by setup-existing-k8s.sh on every run."
+    echo "# Change with: ./setup-existing-k8s.sh --configure-mail"
+    printf '%s=%q\n' \
+      NOTIFY_EMAILS            "$NOTIFY_EMAILS" \
+      MAIL_HOST                "$MAIL_HOST" \
+      MAIL_PORT                "$MAIL_PORT" \
+      MAIL_USER                "$MAIL_USER" \
+      MAIL_PASSWORD            "$MAIL_PASSWORD" \
+      MAIL_FROM                "$MAIL_FROM" \
+      NOTIFY_INCLUDE_PASSWORDS "$NOTIFY_INCLUDE_PASSWORDS"
+  } > "$MAIL_CONFIG_FILE"
+  chmod 600 "$MAIL_CONFIG_FILE"
+
+  echo
+  echo "Saved $MAIL_CONFIG_FILE"
+  echo "Recipients: ${NOTIFY_EMAILS:-<none -- install mail is off on this node>}"
+}
+
 main() {
   preflight
   step0_untaint
@@ -1308,4 +1395,8 @@ main() {
   next_steps
 }
 
-main "$@"
+case "${1:-}" in
+  --configure-mail) configure_mail ;;
+  "")               main ;;
+  *) die "unknown argument: $1 (the only option is --configure-mail)" ;;
+esac
