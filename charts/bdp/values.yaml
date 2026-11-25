@@ -590,6 +590,10 @@ services:
       # this the KafkaAuditPublisher targets its localhost:9092 default and
       # only logs warnings.
       KAFKA_BOOTSTRAP_SERVERS: kafka.bdp-services.svc.cluster.local:9092
+      # Quality-check and access-request alerts go out through the
+      # notification service. Unset, the catalogue posts to its
+      # localhost:7011 default and every alert is lost.
+      BDP_NOTIFICATION_URL: http://bdp-notification-service:7011
       # file | ranger — follows global.accessControlMode so the enforcement
       # mode survives platform upgrades instead of living in kubectl-set env.
       BDP_ACCESS_CONTROL_MODE: '{{ .Values.global.accessControlMode | default "file" }}'
@@ -617,7 +621,13 @@ services:
     extraEnv:
       TRINO_JDBC_URL: jdbc:trino://trino.bdp-services.svc.cluster.local:8080
       MINIO_ENDPOINT: http://minio.bdp-services.svc.cluster.local:9000
-  bdp-notification-service: { port: 7011, db: bdp_notification }
+  bdp-notification-service:
+    port: 7011
+    db: bdp_notification
+    secretEnv:
+      # Encrypts the SMTP password saved from the UI (Notifications -> Email
+      # settings). SMTP itself is configured there, not in this chart.
+      BDP_NOTIFICATION_ENCRYPTION_KEY: { name: bdp-platform-secrets, key: notification-encryption-key }
   bdp-backup-manager:
     port: 7012
     db: bdp_backup
