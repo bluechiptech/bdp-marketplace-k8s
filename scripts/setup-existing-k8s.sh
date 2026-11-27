@@ -1131,6 +1131,34 @@ step5c_realm() {
   esac
 }
 
+# ── Step 5d: Keycloak authorization + admin service account ─────────
+# The chart's bdp-keycloak-authz hook Job imports bdp-client's authorization
+# catalog and creates bdp-admin-svc. If it did not succeed, every /api call
+# is 403 ("No service is up") and the Users/Roles pages 500 -- exactly the
+# MTN install of 2026-11-25. Check it here rather than in the browser.
+step5d_authz() {
+  [[ "$DRY_RUN" == 1 ]] && return 0
+  log "Step 5d - Keycloak authorization"
+
+  local job ok
+  job="$(kubectl get jobs -n "$NAMESPACE" -o name --sort-by=.metadata.creationTimestamp 2>/dev/null \
+        | grep '/bdp-keycloak-authz-' | tail -1 || true)"
+  job="${job#*/}"
+  [[ -n "$job" ]] || job="bdp-keycloak-authz-<revision>"
+  ok="$(kubectl get job "$job" -n "$NAMESPACE" -o jsonpath='{.status.succeeded}' 2>/dev/null || true)"
+  if [[ "$ok" == 1 ]]; then
+    info "job $job succeeded: bdp-client authorization and bdp-admin-svc are in place"
+  else
+    warn "job $job has not succeeded (yet). Without it every /api call returns 403.
+   Logs:    kubectl logs -n $NAMESPACE job/$job
+   Re-run:  helm get hooks $RELEASE -n $NAMESPACE \\
+              | awk 'BEGIN{RS=\"---\"} /name: bdp-keycloak-authz/{printf \"---%s\", \$0}' \\
+              | kubectl apply -n $NAMESPACE -f -"
+  fi
+  info "data-tool repairs (pull secret, MinIO images/user, Iceberg warehouse) run every
+   2 minutes from CronJob bdp-tools-fixer:  kubectl logs -n $NAMESPACE -l app.kubernetes.io/name=bdp-tools-fixer"
+}
+
 # ── Step 6: credentials ──────────────────────────────────────────────
 # There is no default password: the post-install seed job generates random
 # ones, sets them in Keycloak and stores them in bdp-credentials.
@@ -1303,6 +1331,7 @@ main() {
   step5_certificate
   step5b_pod_dns
   step5c_realm
+  step5d_authz
   step6_credentials
   step6b_notify
   next_steps

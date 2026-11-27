@@ -103,6 +103,14 @@ spec:
             - name: {{ $k }}
               value: {{ tpl ($v | toString) $root | quote }}
             {{- end }}
+            {{- /* Env read from a Secret: VAR: {name: <secret>, key: <key>}.
+                   For values that must not sit in plain text in the
+                   Deployment spec (extraEnv above) or the release history. */}}
+            {{- range $k, $ref := ($svc.secretEnv | default dict) }}
+            - name: {{ $k }}
+              valueFrom:
+                secretKeyRef: { name: {{ $ref.name }}, key: {{ $ref.key }} }
+            {{- end }}
           resources:
             {{- toYaml $root.Values.serviceDefaults.resources | nindent 12 }}
           readinessProbe:
