@@ -605,7 +605,7 @@ services:
     secretEnv:
       # Only read when BDP_ACCESS_CONTROL_MODE=ranger; optional so file-mode
       # clusters start without the secret existing.
-      RANGER_ADMIN_PASSWORD: { name: bdp-ranger-admin, key: password }
+      RANGER_ADMIN_PASSWORD: { name: bdp-ranger-admin, key: password, optional: true }
   bdp-domain-manager:
     port: 7019
     db: bdp_domain
