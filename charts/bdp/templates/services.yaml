@@ -103,13 +103,21 @@ spec:
             - name: {{ $k }}
               value: {{ tpl ($v | toString) $root | quote }}
             {{- end }}
-            {{- /* Env read from a Secret: VAR: {name: <secret>, key: <key>}.
-                   For values that must not sit in plain text in the
-                   Deployment spec (extraEnv above) or the release history. */}}
+            {{- /* Env read from a Secret: VAR: {name: <secret>, key: <key>,
+                   optional: <bool>}. For values that must not sit in plain
+                   text in the Deployment spec (extraEnv above) or the release
+                   history. Required by default, so a missing secret stops the
+                   pod (CreateContainerConfigError) instead of starting it with
+                   an empty value -- e.g. the Keycloak admin-client secret.
+                   Set optional: true only for a secret one deployment mode
+                   needs, like the catalog's Ranger admin password. */}}
             {{- range $k, $ref := ($svc.secretEnv | default dict) }}
             - name: {{ $k }}
               valueFrom:
-                secretKeyRef: { name: {{ $ref.name }}, key: {{ $ref.key }} }
+                secretKeyRef:
+                  name: {{ $ref.name }}
+                  key: {{ $ref.key }}
+                  optional: {{ $ref.optional | default false }}
             {{- end }}
           resources:
             {{- toYaml $root.Values.serviceDefaults.resources | nindent 12 }}

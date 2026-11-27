@@ -13,10 +13,6 @@ dependencies:
     version: "18.19.4"
     repository: https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
     condition: redis.enabled
-  - name: keycloak
-    version: "21.4.4"
-    repository: https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami
-    condition: keycloak.enabled
   # cert-manager — prerequisite for KServe's admission webhooks (and any other
   # cert-consuming tool). Installed with the platform so those tools can later
   # be provisioned via BDP.

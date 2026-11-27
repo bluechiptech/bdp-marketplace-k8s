@@ -88,8 +88,12 @@ bdp-postgres
        for services that persist under it (cluster-registry FileSecretBackend) */}}
 - name: HOME
   value: /tmp
+{{- /* -XX:-UseBASE64Intrinsics mitigates Java4Shell (CVE-2026-114938,
+       pre-auth RCE via the JDK's AVX-512 Base64 decoder); the gateway
+       Base64-decodes JWTs before auth. Keep until every service image
+       runs a fixed JDK (>= 21.0.13.1). */}}
 - name: JAVA_OPTS
-  value: "-Xms256m -Xmx768m -Duser.home=/tmp"
+  value: "-Xms256m -Xmx768m -Duser.home=/tmp -XX:-UseBASE64Intrinsics"
 - name: BDP_EXTERNAL_HOST
   value: {{ .Values.global.externalDomain | quote }}
 - name: BDP_KEYCLOAK_ISSUER_URI

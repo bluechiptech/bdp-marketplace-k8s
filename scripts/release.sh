@@ -122,7 +122,9 @@ if [ "$SKIP_GHCR" = 0 ]; then
       || { echo "FAIL: digest changed copying $repo" >&2; exit 1; }
   done < "$RELDIR/digests.txt"
 
-  log "Step 4b: copy the re-hosted bitnami images at their pinned digests"
+  log "Step 4b: copy the re-hosted third-party images at their pinned digests"
+  # postgresql/redis are re-hosted bitnami; keycloak is the OFFICIAL
+  # quay.io/keycloak/keycloak image mirrored into the ACR.
   for repo in bdp/postgresql bdp/redis bdp/keycloak; do
     dig=$(awk -v r="$repo" '$0 ~ "image: "r"$" {f=1; next} f && /digest:/ {print $2; exit}' "$VALUES")
     [ -n "$dig" ] || { echo "FAIL: no digest for $repo in values.yaml" >&2; exit 1; }

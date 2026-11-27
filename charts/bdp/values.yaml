@@ -19,7 +19,7 @@ global:
       bdp-catalog:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-catalog
-        digest: sha256:79c85018a7bda344c363fd1c1ac5a7562863d22365047b054df59526c57b491d
+        digest: sha256:0c98127949dc196bd79c27b47a43b62bec1597dfb1c1a02dc3203f89b3f0ce4d
       bdp-cloud-providers:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-cloud-providers
@@ -39,7 +39,7 @@ global:
       bdp-domain-manager:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-domain-manager
-        digest: sha256:273c1e39eaeb971fa02c16d23c1be1c2f3fdf198068299ec986045524a59296d
+        digest: sha256:1ee98f10e08545c85f438b5039f4809c99b8f03282426f4ddf8b750ce60ad5b6
       bdp-gateway:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-gateway
@@ -79,11 +79,11 @@ global:
       bdp-service-manager:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-service-manager
-        digest: sha256:b337e27da651d7e0cb9535142122cdcfa996fc650a0aefbfecbeb37bb6ed33d1
+        digest: sha256:5ba2bf0aed88c6813102a8daa09435ae5b9faec9ecc56da965fef1de47c203a1
       bdp-service-registry:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-service-registry
-        digest: sha256:cd355b2358cfbd109bb863bfb984619e969097ebc34770aab0a77d0301c47094
+        digest: sha256:7d933c7367060260116f73f0892a428796111696124da58c3e1aba9945fc8241
       bdp-sql-engine:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-sql-engine
@@ -99,7 +99,7 @@ global:
       bdp-ui:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-ui
-        digest: sha256:103f072323bcb6a8ec53cfe85be2e50f06711ca96108f890e703ec0812f97c8d
+        digest: sha256:587933018f61cf963e6d3bf1dec48a8fb06bb1ddc19c90cbd853b432ee30dda7
       seed:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-seed
@@ -108,14 +108,15 @@ global:
         registry: bdpmarketplace.azurecr.io
         image: bdp/bdp-seed
         digest: sha256:f2a6949d99831ae8b5bb50287ca0754fc1d57935a0361d5e2e2a676c0026ab91
+      # OFFICIAL Keycloak image (quay.io/keycloak/keycloak:26.8.2-3 mirrored
+      # into ACR — digest is content-addressed, so it matches quay's).
+      # Patching Keycloak from here on = az acr import the new tag + bump
+      # this digest. The frozen Bitnami 24.0.5 image and its
+      # init-quarkus-directory container are gone (templates/keycloak.yaml).
       keycloak:
         registry: bdpmarketplace.azurecr.io
         image: bdp/keycloak
-        digest: sha256:4879f37d618c7a2bc4c3cdf502e88dbd3d4aec7a867f77608a04a7fd6c1078f0
-      init-quarkus-directory:
-        registry: bdpmarketplace.azurecr.io
-        image: bdp/keycloak
-        digest: sha256:4879f37d618c7a2bc4c3cdf502e88dbd3d4aec7a867f77608a04a7fd6c1078f0
+        digest: sha256:7e66a96e4739239070aeaf72e4c5decf0f7f682cfc725b9f7ea2b336eaba38b3
       postgresql:
         registry: bdpmarketplace.azurecr.io
         image: bdp/postgresql
@@ -295,6 +296,14 @@ global:
   bdpImageTag: "1.0.7"
   # Namespace installed data tools (and their per-tool UI Ingresses) live in.
   toolsNamespace: bdp-services
+  # How the catalog enforces column masking on Trino.
+  #   file   - generated rules.json synced into the coordinator ConfigMap
+  #   ranger - catalog projects governance state into Apache Ranger policies
+  #            (requires the ranger catalogue service installed, Trino >= 466,
+  #            and secret bdp-ranger-admin/password in the platform namespace)
+  # An overlay flips this per environment; without it a platform upgrade would
+  # silently revert a Ranger-enforced cluster to file mode.
+  accessControlMode: file
   # Domain the customer points at the ingress. Everything derives from it:
   # UI https://<domain>, API https://<domain>/api, Keycloak https://keycloak.<domain>
   externalDomain: bdp.example.com
@@ -463,59 +472,39 @@ redis:
       # parameter target (Task F1).
       size: 8Gi
 
+# First-party Keycloak (templates/keycloak.yaml) on the OFFICIAL
+# quay.io/keycloak/keycloak image — the vendored Bitnami subchart (frozen,
+# unpatchable 24.0.5) is gone. The image reference lives in
+# global.azure.images.keycloak like every other container. The hostname,
+# proxy and production-mode concerns the old subchart needed values for are
+# baked into the template (KC_HOSTNAME via bdp.keycloakBaseUrl, which is
+# IP-mode and TLS-scheme aware; KC_PROXY_HEADERS=xforwarded; `start`).
 keycloak:
   enabled: true
-  image:
-    registry: bdpmarketplace.azurecr.io
-    repository: bdp/keycloak
-    digest: sha256:4879f37d618c7a2bc4c3cdf502e88dbd3d4aec7a867f77608a04a7fd6c1078f0
   auth:
     adminUser: admin
-    adminPassword: ""           # empty -> chart-generated
-  proxy: edge
-  # Production mode. The chart's default is false, which starts Keycloak with
-  # `start-dev`: dev-mode caching (so no clustering or session replication) and
-  # hostname checks disabled. Keycloak's own documentation is explicit that
-  # start-dev must not be used in production, and it shipped that way here.
-  #
-  # Requires the hostname below and TLS terminated upstream -- `proxy: edge`
-  # above already says that is the arrangement.
-  production: true
+    adminPassword: ""           # empty -> generated at install, kept across upgrades
+  # "/" in domain mode; the installer sets "/auth" in IP mode, where Keycloak
+  # is a path on the single address instead of its own subdomain.
   httpRelativePath: "/"
-  # Keycloak has to know the URL browsers reach it on. It bakes that into every
-  # token issuer, discovery document and redirect, so getting it wrong produces
-  # a login that appears to work and then fails validation in every service.
-  #
-  # The subchart only sets this when its OWN ingress is enabled, and it is not:
-  # the umbrella's Ingress routes keycloak.<externalDomain> to this service
-  # instead. So it is set explicitly here.
-  #
-  # The scheme follows whether a certificate exists. With global.tlsSecretName
-  # set the ingress serves HTTPS and Keycloak must advertise https; without one
-  # it serves plain HTTP, and advertising https would make every redirect fail.
-  # bdp.keycloakBaseUrl is IP-mode aware: scheme://keycloak.<domain> normally,
-  # scheme://<ip>/auth when externalDomain is a bare IP. The old inline
-  # template here produced http://keycloak.<ip> in IP mode, which Keycloak
-  # rejects with a URISyntaxException 500 on every realm endpoint.
   extraEnvVars:
-    - name: KC_HOSTNAME_URL
-      value: '{{ include "bdp.keycloakBaseUrl" . }}'
-    - name: KC_HOSTNAME_ADMIN_URL
-      value: '{{ include "bdp.keycloakBaseUrl" . }}'
-  # The chart's default "small" resources preset OOM-kills (exit 137) the
-  # kc.sh build/augmentation phase — give Keycloak real memory.
+    # Java4Shell (CVE-2026-114938) mitigation: pre-auth RCE via the JDK's
+    # AVX-512 Base64 decoder. 26.8.2-3 bundles a fixed JDK (21.0.13.1), so
+    # this is belt-and-braces; harmless there, load-bearing on any older
+    # image a cluster might still be pinned to.
+    - name: JAVA_OPTS_APPEND
+      value: "-XX:-UseBASE64Intrinsics"
+  # kc.sh's build/augmentation phase OOM-kills (exit 137) on small limits —
+  # give Keycloak real memory. 2Gi still OOMs the Quarkus augmentation burst.
   resources:
     requests: { cpu: 250m, memory: 1Gi }
-    limits: { memory: 3Gi }   # 2Gi still OOMs the Quarkus augmentation burst
-  # Share the platform postgres instead of the chart's embedded one — the
-  # embedded subchart renders the same resource names and collides.
-  postgresql:
-    enabled: false
-  externalDatabase:
+    limits: { memory: 3Gi }
+  # Shares the platform postgres (bdp-postgres initdb creates this DB).
+  database:
     host: bdp-postgres
     port: 5432
+    name: keycloak
     user: keycloak
-    database: keycloak
     password: keycloak
 
 ui:
@@ -579,6 +568,11 @@ services:
       # so tool UIs go to NodePorts on the address itself (services.yaml runs
       # extraEnv through tpl precisely so this can follow bdp.isIpMode).
       BDP_UI_ACCESS_MODE: '{{ if include "bdp.isIpMode" . }}nodeport{{ else }}ingress{{ end }}'
+      # Follows global.accessControlMode: in ranger mode, TrinoValues renders
+      # the Ranger access-control block into Trino installs/upgrades. Without
+      # this a BDP-driven Trino upgrade would silently drop enforcement on a
+      # Ranger cluster.
+      BDP_TRINO_RANGER_ENABLED: '{{ eq (.Values.global.accessControlMode | default "file") "ranger" }}'
   bdp-storage-manager:
     port: 7005
     db: bdp_storage
@@ -597,6 +591,21 @@ services:
     extraEnv:
       BDP_TRINO_JDBC_URL: jdbc:trino://trino.bdp-services.svc.cluster.local:8080
       MINIO_ENDPOINT: http://minio.bdp-services.svc.cluster.local:9000
+      # Grant/revoke audit events publish to bdp-security-events; without
+      # this the KafkaAuditPublisher targets its localhost:9092 default and
+      # only logs warnings.
+      KAFKA_BOOTSTRAP_SERVERS: kafka.bdp-services.svc.cluster.local:9092
+      # Quality-check and access-request alerts go out through the
+      # notification service. Unset, the catalogue posts to its
+      # localhost:7011 default and every alert is lost.
+      BDP_NOTIFICATION_URL: http://bdp-notification-service:7011
+      # file | ranger — follows global.accessControlMode so the enforcement
+      # mode survives platform upgrades instead of living in kubectl-set env.
+      BDP_ACCESS_CONTROL_MODE: '{{ .Values.global.accessControlMode | default "file" }}'
+    secretEnv:
+      # Only read when BDP_ACCESS_CONTROL_MODE=ranger; optional so file-mode
+      # clusters start without the secret existing.
+      RANGER_ADMIN_PASSWORD: { name: bdp-ranger-admin, key: password }
   bdp-domain-manager:
     port: 7019
     db: bdp_domain
@@ -621,7 +630,13 @@ services:
     extraEnv:
       TRINO_JDBC_URL: jdbc:trino://trino.bdp-services.svc.cluster.local:8080
       MINIO_ENDPOINT: http://minio.bdp-services.svc.cluster.local:9000
-  bdp-notification-service: { port: 7011, db: bdp_notification }
+  bdp-notification-service:
+    port: 7011
+    db: bdp_notification
+    secretEnv:
+      # Encrypts the SMTP password saved from the UI (Notifications -> Email
+      # settings). SMTP itself is configured there, not in this chart.
+      BDP_NOTIFICATION_ENCRYPTION_KEY: { name: bdp-platform-secrets, key: notification-encryption-key }
   bdp-backup-manager:
     port: 7012
     db: bdp_backup

@@ -5,5 +5,8 @@ ARG SERVICE
 RUN useradd --system --uid 10001 --create-home --home-dir /home/bdp bdp
 COPY dist/lib/${SERVICE}.jar /app/app.jar
 USER 10001
-ENV JAVA_OPTS="-Xms256m -Xmx768m"
+# -XX:-UseBASE64Intrinsics: Java4Shell (CVE-2026-114938) mitigation for
+# runs outside the chart (the chart's commonEnv overrides JAVA_OPTS and
+# carries the same flag). Drop both once the base JDK is >= 21.0.13.1.
+ENV JAVA_OPTS="-Xms256m -Xmx768m -XX:-UseBASE64Intrinsics"
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
