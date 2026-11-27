@@ -1,0 +1,98 @@
+{{- if .Values.keycloakAuthz.enabled }}
+{{- /* Second Keycloak bootstrap, run right after the bdp-seed job.
+
+       bdp-seed (setup-server.js) creates the realm, users and login clients,
+       but NOT:
+         - bdp-client and its authorization catalog (files/keycloak/authz-bdp.json).
+           Every backend endpoint asks Keycloak "may this user do X?" against
+           bdp-client; without it every /api call answers 403 and the
+           dashboard is empty ("No service is up" on the MTN install).
+         - bdp-admin-svc, the service account behind the Users and Roles
+           pages (500 without it).
+       Both were done by hand on MTN with the platform repo's scripts; this
+       Job runs the same scripts (copied into files/keycloak/ -- keep them in
+       step with bdp-V3/scripts and bdp-V3/config/keycloak). Both scripts are
+       idempotent, so it also runs on every upgrade.
+
+       Runs in the bdp-seed image, which already carries bash, curl and jq.
+       hook-weight 10 puts it after bdp-seed (weight 0): Helm waits for each
+       hook Job to finish before starting the next weight, so the realm
+       already exists when this starts. */}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bdp-keycloak-authz
+  labels:
+    app.kubernetes.io/part-of: bdp
+data:
+  seed-keycloak-authz.sh: |-
+{{ .Files.Get "files/keycloak/seed-keycloak-authz.sh" | indent 4 }}
+  setup-keycloak-admin-svc.sh: |-
+{{ .Files.Get "files/keycloak/setup-keycloak-admin-svc.sh" | indent 4 }}
+  authz-bdp.json: |-
+{{ .Files.Get "files/keycloak/authz-bdp.json" | indent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bdp-keycloak-authz-{{ .Release.Revision }}
+  labels:
+    app.kubernetes.io/part-of: bdp
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ .Values.keycloakAuthz.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bdp-keycloak-authz
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      containers:
+        - name: keycloak-authz
+          image: {{ include "bdp.image" (dict "root" . "name" .Values.seed.image) }}
+          command: ["bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              echo "Waiting for realm $KC_REALM at $KC_URL ..."
+              until curl -sf "$KC_URL/realms/$KC_REALM" >/dev/null; do sleep 5; done
+              bash /keycloak/seed-keycloak-authz.sh
+              bash /keycloak/setup-keycloak-admin-svc.sh
+          env:
+            - name: KC_URL
+              value: {{ include "bdp.keycloakInternalUrl" . }}
+            - name: KC_REALM
+              value: bdp
+            - name: KC_ADMIN_USER
+              value: {{ .Values.keycloak.auth.adminUser }}
+            - name: KC_ADMIN_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-keycloak
+                  key: admin-password
+            - name: AUTHZ_CONFIG_DIR
+              value: /keycloak
+            - name: ADMIN_SVC_ID
+              value: bdp-admin-svc
+            - name: ADMIN_SVC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: bdp-keycloak-admin-svc
+                  key: client-secret
+          volumeMounts:
+            - name: keycloak
+              mountPath: /keycloak
+              readOnly: true
+      volumes:
+        - name: keycloak
+          configMap:
+            name: bdp-keycloak-authz
+{{- end }}

@@ -1,0 +1,1961 @@
+{
+  "realm": "bdp",
+  "clients": [
+    {
+      "clientId": "bdp-client",
+      "authorizationServicesEnabled": true,
+      "publicClient": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationSettings": {
+        "allowRemoteResourceManagement": false,
+        "policyEnforcementMode": "ENFORCING",
+        "decisionStrategy": "AFFIRMATIVE",
+        "resources": [
+          {
+            "name": "bdp:dashboard",
+            "displayName": "Dashboard home",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "bdp:clusters",
+            "displayName": "Kubernetes clusters",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              },
+              {
+                "name": "delete"
+              },
+              {
+                "name": "manage"
+              }
+            ]
+          },
+          {
+            "name": "bdp:deployment-targets",
+            "displayName": "Deployment targets",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              },
+              {
+                "name": "delete"
+              }
+            ]
+          },
+          {
+            "name": "bdp:services",
+            "displayName": "Installed services",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              },
+              {
+                "name": "delete"
+              },
+              {
+                "name": "manage"
+              }
+            ]
+          },
+          {
+            "name": "bdp:secrets",
+            "displayName": "Service secrets",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              },
+              {
+                "name": "delete"
+              }
+            ]
+          },
+          {
+            "name": "bdp:storage",
+            "displayName": "Object storage",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              },
+              {
+                "name": "delete"
+              }
+            ]
+          },
+          {
+            "name": "bdp:drivers",
+            "displayName": "Service drivers and plugins",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              }
+            ]
+          },
+          {
+            "name": "bdp:pipelines",
+            "displayName": "Pipelines",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              },
+              {
+                "name": "delete"
+              },
+              {
+                "name": "execute"
+              }
+            ]
+          },
+          {
+            "name": "bdp:sql",
+            "displayName": "SQL editor",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              },
+              {
+                "name": "execute"
+              }
+            ]
+          },
+          {
+            "name": "bdp:catalog",
+            "displayName": "Data catalog",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              },
+              {
+                "name": "cross-domain:read"
+              }
+            ]
+          },
+          {
+            "name": "bdp:security",
+            "displayName": "Security policies",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              }
+            ]
+          },
+          {
+            "name": "bdp:config",
+            "displayName": "Platform config",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              }
+            ]
+          },
+          {
+            "name": "bdp:metrics",
+            "displayName": "Metrics",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "bdp:notifications",
+            "displayName": "Notifications",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              }
+            ]
+          },
+          {
+            "name": "bdp:backups",
+            "displayName": "Backups",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              },
+              {
+                "name": "execute"
+              }
+            ]
+          },
+          {
+            "name": "bdp:license",
+            "displayName": "License",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              }
+            ]
+          },
+          {
+            "name": "bdp:updates",
+            "displayName": "Platform updates",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "execute"
+              }
+            ]
+          },
+          {
+            "name": "bdp:users",
+            "displayName": "User manager",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              },
+              {
+                "name": "delete"
+              }
+            ]
+          },
+          {
+            "name": "bdp:roles",
+            "displayName": "Roles & permissions",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              }
+            ]
+          },
+          {
+            "name": "bdp:settings",
+            "displayName": "Platform settings",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              }
+            ]
+          },
+          {
+            "name": "bdp:domains",
+            "displayName": "Data Mesh domains",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              },
+              {
+                "name": "delete"
+              }
+            ]
+          },
+          {
+            "name": "bdp:iceberg",
+            "displayName": "Iceberg namespaces",
+            "scopes": [
+              {
+                "name": "cross-domain:write"
+              }
+            ]
+          },
+          {
+            "name": "tool:airflow",
+            "displayName": "Airflow",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:superset",
+            "displayName": "Superset",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:jupyterhub",
+            "displayName": "JupyterHub",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:spark",
+            "displayName": "Spark",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:kafka-ui",
+            "displayName": "Kafka UI",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:minio",
+            "displayName": "MinIO",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:iceberg",
+            "displayName": "Iceberg REST",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:schema-registry",
+            "displayName": "Schema Registry",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:nifi",
+            "displayName": "NiFi",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:trino",
+            "displayName": "Trino",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:ozone",
+            "displayName": "Ozone",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:mlflow",
+            "displayName": "MLflow",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:zenml",
+            "displayName": "ZenML",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:bentoml",
+            "displayName": "BentoML",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:api-gateway",
+            "displayName": "API Gateway",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:kafka",
+            "displayName": "Kafka",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:postgresql",
+            "displayName": "PostgreSQL",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:clickhouse",
+            "displayName": "ClickHouse",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:feast",
+            "displayName": "Feast",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:kserve",
+            "displayName": "KServe",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:observability",
+            "displayName": "Grafana",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "tool:falco",
+            "displayName": "Falco",
+            "scopes": [
+              {
+                "name": "read"
+              }
+            ]
+          },
+          {
+            "name": "bdp:api-keys",
+            "displayName": "API keys",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              },
+              {
+                "name": "delete"
+              }
+            ]
+          },
+          {
+            "name": "bdp:access-requests",
+            "displayName": "Data access requests",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "approve"
+              },
+              {
+                "name": "revoke"
+              }
+            ]
+          },
+          {
+            "name": "bdp:migration",
+            "displayName": "Oracle migration",
+            "scopes": [
+              {
+                "name": "read"
+              },
+              {
+                "name": "write"
+              },
+              {
+                "name": "execute"
+              }
+            ]
+          }
+        ],
+        "policies": [
+          {
+            "name": "is-admin",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"admin\",\"required\":false}]"
+            }
+          },
+          {
+            "name": "is-operator",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"operator\",\"required\":false}]"
+            }
+          },
+          {
+            "name": "is-data-engineer",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"data-engineer\",\"required\":false}]"
+            }
+          },
+          {
+            "name": "is-pipeline-dev",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"pipeline-dev\",\"required\":false}]"
+            }
+          },
+          {
+            "name": "is-data-analyst",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"data-analyst\",\"required\":false}]"
+            }
+          },
+          {
+            "name": "is-viewer",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"viewer\",\"required\":false}]"
+            }
+          },
+          {
+            "name": "is-data-steward",
+            "type": "role",
+            "logic": "POSITIVE",
+            "decisionStrategy": "UNANIMOUS",
+            "config": {
+              "roles": "[{\"id\":\"data-steward\",\"required\":false}]"
+            }
+          },
+          {
+            "name": "bdp:dashboard:read",
+            "resources": [
+              "bdp:dashboard"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev",
+              "is-data-analyst",
+              "is-viewer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:clusters:read",
+            "resources": [
+              "bdp:clusters"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-viewer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:clusters:write",
+            "resources": [
+              "bdp:clusters"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:clusters:delete",
+            "resources": [
+              "bdp:clusters"
+            ],
+            "scopes": [
+              "delete"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:clusters:manage",
+            "resources": [
+              "bdp:clusters"
+            ],
+            "scopes": [
+              "manage"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:deployment-targets:read",
+            "resources": [
+              "bdp:deployment-targets"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-viewer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:deployment-targets:write",
+            "resources": [
+              "bdp:deployment-targets"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:deployment-targets:delete",
+            "resources": [
+              "bdp:deployment-targets"
+            ],
+            "scopes": [
+              "delete"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:services:read",
+            "resources": [
+              "bdp:services"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-viewer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:services:write",
+            "resources": [
+              "bdp:services"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:services:delete",
+            "resources": [
+              "bdp:services"
+            ],
+            "scopes": [
+              "delete"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:services:manage",
+            "resources": [
+              "bdp:services"
+            ],
+            "scopes": [
+              "manage"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:secrets:read",
+            "resources": [
+              "bdp:secrets"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:secrets:write",
+            "resources": [
+              "bdp:secrets"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:secrets:delete",
+            "resources": [
+              "bdp:secrets"
+            ],
+            "scopes": [
+              "delete"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:storage:read",
+            "resources": [
+              "bdp:storage"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-data-analyst",
+              "is-viewer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:storage:write",
+            "resources": [
+              "bdp:storage"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:storage:delete",
+            "resources": [
+              "bdp:storage"
+            ],
+            "scopes": [
+              "delete"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:drivers:read",
+            "resources": [
+              "bdp:drivers"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:drivers:write",
+            "resources": [
+              "bdp:drivers"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:pipelines:read",
+            "resources": [
+              "bdp:pipelines"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev",
+              "is-viewer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:pipelines:write",
+            "resources": [
+              "bdp:pipelines"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-engineer",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:pipelines:delete",
+            "resources": [
+              "bdp:pipelines"
+            ],
+            "scopes": [
+              "delete"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:pipelines:execute",
+            "resources": [
+              "bdp:pipelines"
+            ],
+            "scopes": [
+              "execute"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:sql:read",
+            "resources": [
+              "bdp:sql"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev",
+              "is-data-analyst"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:sql:write",
+            "resources": [
+              "bdp:sql"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-engineer",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:sql:execute",
+            "resources": [
+              "bdp:sql"
+            ],
+            "scopes": [
+              "execute"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev",
+              "is-data-analyst"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:catalog:read",
+            "resources": [
+              "bdp:catalog"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev",
+              "is-data-analyst",
+              "is-viewer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:catalog:write",
+            "resources": [
+              "bdp:catalog"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-engineer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:catalog:cross-domain:read",
+            "resources": [
+              "bdp:catalog"
+            ],
+            "scopes": [
+              "cross-domain:read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:security:read",
+            "resources": [
+              "bdp:security"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:security:write",
+            "resources": [
+              "bdp:security"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:config:read",
+            "resources": [
+              "bdp:config"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:config:write",
+            "resources": [
+              "bdp:config"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:metrics:read",
+            "resources": [
+              "bdp:metrics"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev",
+              "is-data-analyst",
+              "is-viewer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:notifications:read",
+            "resources": [
+              "bdp:notifications"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-viewer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:notifications:write",
+            "resources": [
+              "bdp:notifications"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:backups:read",
+            "resources": [
+              "bdp:backups"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:backups:write",
+            "resources": [
+              "bdp:backups"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:backups:execute",
+            "resources": [
+              "bdp:backups"
+            ],
+            "scopes": [
+              "execute"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:license:read",
+            "resources": [
+              "bdp:license"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:license:write",
+            "resources": [
+              "bdp:license"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:updates:read",
+            "resources": [
+              "bdp:updates"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:updates:execute",
+            "resources": [
+              "bdp:updates"
+            ],
+            "scopes": [
+              "execute"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:users:read",
+            "resources": [
+              "bdp:users"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:users:write",
+            "resources": [
+              "bdp:users"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:users:delete",
+            "resources": [
+              "bdp:users"
+            ],
+            "scopes": [
+              "delete"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:roles:read",
+            "resources": [
+              "bdp:roles"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:roles:write",
+            "resources": [
+              "bdp:roles"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:settings:read",
+            "resources": [
+              "bdp:settings"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:settings:write",
+            "resources": [
+              "bdp:settings"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:domains:read",
+            "resources": [
+              "bdp:domains"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev",
+              "is-data-analyst",
+              "is-viewer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:domains:write",
+            "resources": [
+              "bdp:domains"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:domains:delete",
+            "resources": [
+              "bdp:domains"
+            ],
+            "scopes": [
+              "delete"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:iceberg:cross-domain:write",
+            "resources": [
+              "bdp:iceberg"
+            ],
+            "scopes": [
+              "cross-domain:write"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:airflow:read",
+            "resources": [
+              "tool:airflow"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:superset:read",
+            "resources": [
+              "tool:superset"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev",
+              "is-data-analyst",
+              "is-viewer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:jupyterhub:read",
+            "resources": [
+              "tool:jupyterhub"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-engineer",
+              "is-data-analyst",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:spark:read",
+            "resources": [
+              "tool:spark"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:kafka-ui:read",
+            "resources": [
+              "tool:kafka-ui"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:minio:read",
+            "resources": [
+              "tool:minio"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:iceberg:read",
+            "resources": [
+              "tool:iceberg"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-data-analyst"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:schema-registry:read",
+            "resources": [
+              "tool:schema-registry"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:nifi:read",
+            "resources": [
+              "tool:nifi"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:trino:read",
+            "resources": [
+              "tool:trino"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-data-analyst"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:ozone:read",
+            "resources": [
+              "tool:ozone"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:mlflow:read",
+            "resources": [
+              "tool:mlflow"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-engineer",
+              "is-data-analyst",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:zenml:read",
+            "resources": [
+              "tool:zenml"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-engineer",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:bentoml:read",
+            "resources": [
+              "tool:bentoml"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-engineer",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:api-gateway:read",
+            "resources": [
+              "tool:api-gateway"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:kafka:read",
+            "resources": [
+              "tool:kafka"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:postgresql:read",
+            "resources": [
+              "tool:postgresql"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:clickhouse:read",
+            "resources": [
+              "tool:clickhouse"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-data-engineer",
+              "is-data-analyst"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:feast:read",
+            "resources": [
+              "tool:feast"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-engineer",
+              "is-data-analyst",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:kserve:read",
+            "resources": [
+              "tool:kserve"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-engineer",
+              "is-pipeline-dev"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:observability:read",
+            "resources": [
+              "tool:observability"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator",
+              "is-viewer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "tool:falco:read",
+            "resources": [
+              "tool:falco"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:api-keys:read",
+            "resources": [
+              "bdp:api-keys"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:api-keys:write",
+            "resources": [
+              "bdp:api-keys"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:api-keys:delete",
+            "resources": [
+              "bdp:api-keys"
+            ],
+            "scopes": [
+              "delete"
+            ],
+            "policies": [
+              "is-admin"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:access-requests:read",
+            "resources": [
+              "bdp:access-requests"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-steward",
+              "is-data-engineer",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:access-requests:approve",
+            "resources": [
+              "bdp:access-requests"
+            ],
+            "scopes": [
+              "approve"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-steward"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:access-requests:revoke",
+            "resources": [
+              "bdp:access-requests"
+            ],
+            "scopes": [
+              "revoke"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-steward"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:migration:read",
+            "resources": [
+              "bdp:migration"
+            ],
+            "scopes": [
+              "read"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-engineer",
+              "is-operator"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:migration:write",
+            "resources": [
+              "bdp:migration"
+            ],
+            "scopes": [
+              "write"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-engineer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          },
+          {
+            "name": "bdp:migration:execute",
+            "resources": [
+              "bdp:migration"
+            ],
+            "scopes": [
+              "execute"
+            ],
+            "policies": [
+              "is-admin",
+              "is-data-engineer"
+            ],
+            "decisionStrategy": "AFFIRMATIVE",
+            "type": "scope"
+          }
+        ]
+      }
+    }
+  ]
+}

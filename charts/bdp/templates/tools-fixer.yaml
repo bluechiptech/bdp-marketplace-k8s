@@ -1,0 +1,140 @@
+{{- if .Values.toolsFixer.enabled }}
+{{- /* bdp-tools-fixer: scheduled, idempotent repair of data-tool installs in
+       global.toolsNamespace -- see files/tools-fixer.sh for what and why.
+
+       Runs in the RELEASE namespace, not the tools namespace: its own images
+       come from the private registry, and the pull secret only exists here
+       until this very job copies it across. It acts on the tools namespace
+       through the Role below.
+
+       Two containers: an init container from the janitor image (alpine +
+       kubectl) copies kubectl into a shared volume, and the main container is
+       the seed image (bash, curl, jq). No new image needed. */}}
+{{- $ns := .Values.global.toolsNamespace }}
+{{- $pullSecret := "" }}
+{{- with .Values.global.imagePullSecrets }}{{ $pullSecret = (first .).name }}{{ end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bdp-tools-fixer
+  labels:
+    app.kubernetes.io/part-of: bdp
+data:
+  tools-fixer.sh: |-
+{{ .Files.Get "files/tools-fixer.sh" | indent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bdp-tools-fixer
+  labels:
+    app.kubernetes.io/part-of: bdp
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: bdp-tools-fixer
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/part-of: bdp
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, create, patch]
+  - apiGroups: [""]
+    resources: [serviceaccounts]
+    verbs: [get, list, patch]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, delete]
+  - apiGroups: [""]
+    resources: [pods/exec]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [services]
+    verbs: [get, list]
+  - apiGroups: [apps]
+    resources: [deployments, statefulsets]
+    verbs: [get, list, patch]
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [get, list, create, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: bdp-tools-fixer
+  namespace: {{ $ns }}
+  labels:
+    app.kubernetes.io/part-of: bdp
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: bdp-tools-fixer }
+subjects:
+  - { kind: ServiceAccount, name: bdp-tools-fixer, namespace: {{ .Release.Namespace }} }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: bdp-tools-fixer
+  labels:
+    app.kubernetes.io/part-of: bdp
+spec:
+  schedule: {{ .Values.toolsFixer.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 600
+      backoffLimit: 0
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: bdp-tools-fixer
+        spec:
+          {{- with .Values.global.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          serviceAccountName: bdp-tools-fixer
+          restartPolicy: Never
+          initContainers:
+            - name: kubectl
+              image: {{ include "bdp.image" (dict "root" . "name" "janitor") }}
+              command: ["/bin/sh", "-c", "cp \"$(command -v kubectl)\" /tools/kubectl && chmod 755 /tools/kubectl"]
+              volumeMounts:
+                - { name: tools, mountPath: /tools }
+          containers:
+            - name: fixer
+              image: {{ include "bdp.image" (dict "root" . "name" .Values.seed.image) }}
+              command: ["bash", "/fixer/tools-fixer.sh"]
+              env:
+                - { name: TOOLS_NS, value: {{ $ns | quote }} }
+                - { name: PULL_SECRET, value: {{ $pullSecret | quote }} }
+                - { name: REWRITES, value: {{ .Values.toolsFixer.imageRewrites | toJson | quote }} }
+                - { name: MINIO_POD_LABEL, value: {{ .Values.toolsFixer.minio.podLabel | quote }} }
+                - { name: MINIO_ENDPOINT, value: "http://minio.{{ $ns }}.svc.cluster.local:9000" }
+                - { name: LK_SERVICE, value: {{ .Values.toolsFixer.lakekeeper.service | quote }} }
+                - { name: LK_PORT, value: {{ .Values.toolsFixer.lakekeeper.port | quote }} }
+                - { name: LK_WAREHOUSE, value: {{ .Values.toolsFixer.lakekeeper.warehouse | quote }} }
+                - { name: LK_BUCKET, value: {{ .Values.toolsFixer.lakekeeper.bucket | quote }} }
+                - { name: KC_URL, value: {{ include "bdp.keycloakInternalUrl" . | quote }} }
+                - name: MINIO_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef: { name: bdp-platform-secrets, key: minio-access-key }
+                - name: MINIO_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef: { name: bdp-platform-secrets, key: minio-secret-key }
+              volumeMounts:
+                - { name: tools, mountPath: /tools }
+                - { name: fixer, mountPath: /fixer, readOnly: true }
+                - { name: pull, mountPath: /pull, readOnly: true }
+          volumes:
+            - { name: tools, emptyDir: {} }
+            - name: fixer
+              configMap: { name: bdp-tools-fixer }
+            - name: pull
+              secret:
+                secretName: {{ $pullSecret | default "bdp-registry-cred" }}
+                optional: true
+{{- end }}

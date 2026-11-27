@@ -532,6 +532,11 @@ services:
       # localhost:8080, which on K8s produced Connection refused -> 500 on
       # both pages. The in-cluster URL carries /auth (httpRelativePath).
       BDP_KEYCLOAK_BASE_URL: '{{ include "bdp.keycloakInternalUrl" . }}'
+    # Generated per install (templates/secrets.yaml); the keycloak-authz job
+    # creates the bdp-admin-svc client with the same value. Without that
+    # client the Users and Roles pages 500 (seen on the MTN install).
+    secretEnv:
+      BDP_KEYCLOAK_ADMIN_CLIENT_SECRET: { name: bdp-keycloak-admin-svc, key: client-secret }
   bdp-cluster-registry:    { port: 7018, db: bdp_cluster_registry }
   bdp-cluster-manager:
     port: 7002
@@ -600,7 +605,7 @@ services:
     secretEnv:
       # Only read when BDP_ACCESS_CONTROL_MODE=ranger; optional so file-mode
       # clusters start without the secret existing.
-      RANGER_ADMIN_PASSWORD: { name: bdp-ranger-admin, key: password }
+      RANGER_ADMIN_PASSWORD: { name: bdp-ranger-admin, key: password, optional: true }
   bdp-domain-manager:
     port: 7019
     db: bdp_domain
@@ -610,9 +615,13 @@ services:
     # so the properties bind on the shipped image regardless of its
     # application.yml -- no image rebuild needed. base-url is the in-cluster
     # Keycloak admin endpoint (carries /auth in IP mode, same helper commonEnv
-    # uses for the issuer); the admin-svc client secret matches bdp-auth-service.
+    # uses for the issuer). The admin-svc client SECRET is deliberately not in
+    # this JSON: SPRING_APPLICATION_JSON outranks plain env vars, so a literal
+    # here would override the generated secret injected by secretEnv below.
     extraEnv:
-      SPRING_APPLICATION_JSON: '{"bdp.keycloak.base-url":"{{ include "bdp.keycloakInternalUrl" . }}","bdp.keycloak.realm":"bdp","bdp.keycloak.admin-client-id":"bdp-admin-svc","bdp.keycloak.admin-client-secret":"bdp-admin-svc-secret"}'
+      SPRING_APPLICATION_JSON: '{"bdp.keycloak.base-url":"{{ include "bdp.keycloakInternalUrl" . }}","bdp.keycloak.realm":"bdp","bdp.keycloak.admin-client-id":"bdp-admin-svc"}'
+    secretEnv:
+      BDP_KEYCLOAK_ADMIN_CLIENT_SECRET: { name: bdp-keycloak-admin-svc, key: client-secret }
   bdp-security-policies:   { port: 7010, db: bdp_security }
   bdp-key-manager:         { port: 7020, db: bdp_keymanager }
   bdp-oracle-migration:
@@ -693,6 +702,42 @@ services:
 seed:
   image: seed              # global.azure.images key (renders bdp/bdp-seed)
   backoffLimit: 3
+
+# ── Keycloak authorization + admin service account ──────────────────────────
+# Post-install/upgrade Job (templates/keycloak-authz-job.yaml) that runs after
+# bdp-seed: imports bdp-client's authorization catalog and creates the
+# bdp-admin-svc client. Without it every /api call is 403 and the Users/Roles
+# pages 500 -- both seen on the MTN install, which had to be fixed by hand.
+keycloakAuthz:
+  enabled: true
+  backoffLimit: 3
+
+# ── Tools fixer ──────────────────────────────────────────────────────────────
+# CronJob (templates/tools-fixer.yaml, files/tools-fixer.sh) that repairs
+# data-tool installs in global.toolsNamespace: copies + attaches the registry
+# pull secret, rewrites images from dead public registries to the mirror,
+# creates the platform MinIO user + Iceberg bucket, and the Lakekeeper
+# warehouse. Each step does nothing when there is nothing to fix.
+toolsFixer:
+  enabled: true
+  schedule: "*/2 * * * *"
+  # image prefix -> replacement. Matched only up to ":" or "@", so the tag or
+  # digest is kept -- the mirror must carry the same tags (it does for MinIO
+  # chart 5.2.0's defaults).
+  imageRewrites:
+    quay.io/minio/minio: bdpmarketplace.azurecr.io/tools/minio/minio
+    quay.io/minio/mc: bdpmarketplace.azurecr.io/tools/minio/mc
+    docker.io/minio/minio: bdpmarketplace.azurecr.io/tools/minio/minio
+    docker.io/minio/mc: bdpmarketplace.azurecr.io/tools/minio/mc
+    minio/minio: bdpmarketplace.azurecr.io/tools/minio/minio
+    minio/mc: bdpmarketplace.azurecr.io/tools/minio/mc
+  minio:
+    podLabel: app=minio
+  lakekeeper:
+    service: iceberg-lakekeeper
+    port: 8181
+    warehouse: bdp
+    bucket: warehouse
 
 # ── Pod janitor ──────────────────────────────────────────────────────────────
 # Auto-deletes dead/orphaned pods (Error/Evicted/ContainerStatusUnknown) that
@@ -867,7 +912,14 @@ kube-prometheus-stack:
   crds:
     enabled: true
     upgradeJob:
-      enabled: true
+      # OFF since 2026-11-26. On the MTN install this hook Job sat Pending
+      # forever: its ConfigMap (a hook with delete policy hook-succeeded) was
+      # gone before the pod could mount it. The CRDs are still installed on
+      # first install from the subchart's crds/ directory; the cost is that
+      # `helm upgrade` no longer refreshes them -- after a kube-prometheus-stack
+      # version bump, apply them by hand:
+      #   kubectl apply --server-side -f charts/bdp/charts/kube-prometheus-stack/charts/crds/crds/
+      enabled: false
       # Task G1: air-gapped — busybox/kubectl containers of this Helm-hook Job.
       # NOTE: this vendored chart's own upgrade/job.yaml guards the busybox
       # digest suffix on `.Values.upgradeJob.image.sha` (a top-level key that
@@ -1197,6 +1249,10 @@ loki:
   # the loki chart itself), so they nest at the same level as loki.loki
   # above, i.e. loki.<key>.image here.
   test:
+    # OFF since 2026-11-26: the loki-helm-test pod sat Pending/ImagePullBackOff
+    # on the MTN install (this digest is not pullable from the mirror). It is
+    # only a `helm test` smoke check; Loki itself is unaffected.
+    enabled: false
     image:
       registry: bdpmarketplace.azurecr.io
       repository: tools/loki-helm-test
